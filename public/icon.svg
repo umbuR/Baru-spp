@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="128" fill="#1e3a8a"/>
+  <rect x="32" y="32" width="448" height="448" rx="96" fill="url(#grad)" stroke="#3b82f6" stroke-width="8"/>
+  <defs>
+    <linearGradient id="grad" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1e40af"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <!-- Document & Shield Symbol -->
+  <path d="M160 128H288L352 192V384C352 397.255 341.255 408 328 408H160C146.745 408 136 397.255 136 384V152C136 138.745 146.745 128 160 128Z" fill="#1e293b" stroke="#60a5fa" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M280 128V192H344" stroke="#60a5fa" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Contract Lines -->
+  <line x1="176" y1="232" x2="304" y2="232" stroke="#94a3b8" stroke-width="10" stroke-linecap="round"/>
+  <line x1="176" y1="272" x2="280" y2="272" stroke="#94a3b8" stroke-width="10" stroke-linecap="round"/>
+  <line x1="176" y1="312" x2="240" y2="312" stroke="#94a3b8" stroke-width="10" stroke-linecap="round"/>
+  <!-- Pen Signature Mark & Shield Badge -->
+  <circle cx="340" cy="340" r="64" fill="#059669" stroke="#34d399" stroke-width="10"/>
+  <path d="M316 340L332 356L368 320" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

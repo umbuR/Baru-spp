@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pengajuan pinjaman nasabah
+    match /loan_applications/{applicationId} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+
+    // Jejak log audit
+    match /audit_logs/{logId} {
+      allow read, create: if true;
+      allow update, delete: if false;
+    }
+  }
+}

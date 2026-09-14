@@ -1,0 +1,11 @@
+{
+  "name": "PM Mitra Sejahtera Bersama - Sistem Surat Perjanjian Pinjaman",
+  "description": "Sistem Surat Perjanjian Pinjaman PM Mitra Sejahtera Bersama Mobile-First & PWA lengkap dengan kamera verifikasi KTP, KK, Selfie Liveness, tanda tangan digital (e-Signature), autentikasi biometrik WebAuthn, PDF generator, dan panel admin verifikator berkas.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
