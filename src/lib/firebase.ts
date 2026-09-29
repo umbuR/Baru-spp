@@ -1,5 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import { 
+  initializeFirestore,
   getFirestore, 
   collection, 
   doc, 
@@ -10,7 +12,9 @@ import {
   onSnapshot, 
   query, 
   orderBy,
-  serverTimestamp
+  serverTimestamp,
+  setLogLevel,
+  type Firestore
 } from 'firebase/firestore';
 import firebaseConfigData from '../../firebase-applet-config.json';
 import { LoanApplication, ApplicationStatus, LoanTerms } from '../types';
@@ -27,28 +31,95 @@ export const firebaseConfig = {
 // Initialize Firebase App
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firestore with configured custom database ID
-export const db = getFirestore(
-  app, 
-  firebaseConfigData.firestoreDatabaseId || '(default)'
-);
+// Initialize Auth
+export const auth = getAuth(app);
+
+// Suppress excessive Firestore offline/poll warnings in dev/iframe environment
+try {
+  setLogLevel('silent');
+} catch {
+  // ignore
+}
+
+// CRITICAL: Load database directly with firestoreDatabaseId as required by Firebase skill
+export const db: Firestore = getFirestore(app, firebaseConfigData.firestoreDatabaseId);
 
 export const LOAN_COLLECTION = 'loan_applications';
 export const AUDIT_COLLECTION = 'audit_logs';
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map((provider) => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 /**
  * Validate connection to Firestore as required by Firebase skill guidelines
  */
 export async function testFirestoreConnection(): Promise<boolean> {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Connection check timeout')), 3000)
+    );
+    // Use getDocs on test collection with timeout to avoid uncaught client offline errors
+    await Promise.race([
+      getDocs(collection(db, 'test')),
+      timeoutPromise
+    ]);
     return true;
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase client is offline, falling back to cached persistence.');
+  } catch (error: any) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    const errorCode = error?.code || '';
+    if (
+      errorMsg.includes('the client is offline') || 
+      errorCode === 'unavailable' ||
+      errorMsg.includes('unavailable') ||
+      errorMsg.includes('timeout')
+    ) {
       return false;
     }
-    // Any other response (like doc not found) confirms the server is reachable
+    // Any other response confirms the server is reachable
     return true;
   }
 }
@@ -71,11 +142,38 @@ export function subscribeToLoanApplications(
       });
       onData(items);
     },
-    (err) => {
-      console.error('Firestore subscription error:', err);
+    (err: any) => {
+      if (err?.code === 'permission-denied' || err?.message?.includes('permission')) {
+        handleFirestoreError(err, OperationType.LIST, LOAN_COLLECTION);
+      } else {
+        console.warn('Firestore subscription status:', err?.message || err);
+      }
       if (onError) onError(err);
     }
   );
+}
+
+/**
+ * Recursively remove `undefined` values from object or convert to null
+ * because Firestore setDoc/updateDoc fails when any field is undefined.
+ */
+export function cleanUndefined<T>(obj: T): T {
+  if (obj === null || obj === undefined) {
+    return null as any;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map((item) => cleanUndefined(item)) as any;
+  }
+  if (typeof obj === 'object') {
+    const result: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        result[key] = cleanUndefined(value);
+      }
+    }
+    return result as any;
+  }
+  return obj;
 }
 
 /**
@@ -83,18 +181,27 @@ export function subscribeToLoanApplications(
  */
 export async function saveApplicationToFirestore(application: LoanApplication): Promise<void> {
   const docRef = doc(db, LOAN_COLLECTION, application.id);
-  await setDoc(docRef, {
+  const cleanData = cleanUndefined({
     ...application,
     updatedAt: new Date().toISOString()
   });
 
-  // Log audit trail
-  await recordAuditLog({
-    action: 'PENGAJUAN_BARU',
-    operator: application.applicant.fullName,
-    applicationId: application.id,
-    notes: `Pengajuan pinjaman baru Rp ${application.loan.loanAmount.toLocaleString('id-ID')} dengan nomor ${application.contractNumber}`
-  });
+  try {
+    await setDoc(docRef, cleanData, { merge: true });
+    // Log audit trail
+    await recordAuditLog({
+      action: 'PENGAJUAN_BARU',
+      operator: application.applicant.fullName,
+      applicationId: application.id,
+      notes: `Pengajuan pinjaman baru Rp ${application.loan.loanAmount.toLocaleString('id-ID')} dengan nomor ${application.contractNumber}`
+    });
+  } catch (err: any) {
+    if (err?.code === 'permission-denied' || err?.message?.includes('permission')) {
+      handleFirestoreError(err, OperationType.WRITE, `${LOAN_COLLECTION}/${application.id}`);
+    } else {
+      console.warn('Simpan ke Firestore tertunda (offline/cache aktif):', err?.message || err);
+    }
+  }
 }
 
 /**
@@ -104,26 +211,38 @@ export async function updateApplicationStatusInFirestore(
   id: string,
   newStatus: ApplicationStatus,
   notes?: string,
-  verifierName?: string
+  verifierName?: string,
+  statusLogs?: any[]
 ): Promise<void> {
   const docRef = doc(db, LOAN_COLLECTION, id);
   const now = new Date().toISOString();
   
-  await updateDoc(docRef, {
+  const payload = cleanUndefined({
+    id,
     status: newStatus,
     verificationNotes: notes || '',
     verifiedBy: verifierName || 'Verifikator Berkas',
     verifiedAt: now,
-    updatedAt: now
+    updatedAt: now,
+    ...(statusLogs ? { statusLogs } : {})
   });
 
-  // Log audit trail
-  await recordAuditLog({
-    action: newStatus === 'APPROVED' ? 'PERSETUJUAN_PINJAMAN' : 'PENOLAKAN_PINJAMAN',
-    operator: verifierName || 'Verifikator Berkas',
-    applicationId: id,
-    notes: `Status diubah menjadi ${newStatus}. Catatan: ${notes || '-'}`
-  });
+  try {
+    await setDoc(docRef, payload, { merge: true });
+    // Log audit trail
+    await recordAuditLog({
+      action: newStatus === 'APPROVED' ? 'PERSETUJUAN_PINJAMAN' : 'PENOLAKAN_PINJAMAN',
+      operator: verifierName || 'Verifikator Berkas',
+      applicationId: id,
+      notes: `Status diubah menjadi ${newStatus}. Catatan: ${notes || '-'}`
+    });
+  } catch (err: any) {
+    if (err?.code === 'permission-denied' || err?.message?.includes('permission')) {
+      handleFirestoreError(err, OperationType.WRITE, `${LOAN_COLLECTION}/${id}`);
+    } else {
+      console.warn('Update status ke Firestore tertunda (offline/cache aktif):', err?.message || err);
+    }
+  }
 }
 
 /**
@@ -134,12 +253,14 @@ export async function updateApplicationLoanInFirestore(
   updatedLoan: LoanTerms,
   newStatus?: ApplicationStatus,
   notes?: string,
-  verifierName?: string
+  verifierName?: string,
+  statusLogs?: any[]
 ): Promise<void> {
   const docRef = doc(db, LOAN_COLLECTION, id);
   const now = new Date().toISOString();
   
   const updatePayload: Record<string, any> = {
+    id,
     loan: updatedLoan,
     updatedAt: now
   };
@@ -154,16 +275,26 @@ export async function updateApplicationLoanInFirestore(
     updatePayload.verifiedBy = verifierName;
     updatePayload.verifiedAt = now;
   }
+  if (statusLogs) {
+    updatePayload.statusLogs = statusLogs;
+  }
 
-  await updateDoc(docRef, updatePayload);
-
-  // Log audit trail
-  await recordAuditLog({
-    action: newStatus === 'APPROVED' ? 'UBAH_DAN_SETUJUI_PINJAMAN' : 'UBAH_KETENTUAN_PINJAMAN',
-    operator: verifierName || 'Verifikator Berkas',
-    applicationId: id,
-    notes: `Plafon pinjaman disesuaikan: Rp ${updatedLoan.loanAmount.toLocaleString('id-ID')}, Tenor ${updatedLoan.tenorWeeks} mgg, Angsuran Rp ${updatedLoan.weeklyInstallment.toLocaleString('id-ID')}/mgg.${newStatus ? ` Status: ${newStatus}.` : ''} Catatan: ${notes || '-'}`
-  });
+  try {
+    await setDoc(docRef, cleanUndefined(updatePayload), { merge: true });
+    // Log audit trail
+    await recordAuditLog({
+      action: newStatus === 'APPROVED' ? 'UBAH_DAN_SETUJUI_PINJAMAN' : 'UBAH_KETENTUAN_PINJAMAN',
+      operator: verifierName || 'Verifikator Berkas',
+      applicationId: id,
+      notes: `Plafon pinjaman disesuaikan: Rp ${updatedLoan.loanAmount.toLocaleString('id-ID')}, Tenor ${updatedLoan.tenorWeeks} mgg, Angsuran Rp ${updatedLoan.weeklyInstallment.toLocaleString('id-ID')}/mgg.${newStatus ? ` Status: ${newStatus}.` : ''} Catatan: ${notes || '-'}`
+    });
+  } catch (err: any) {
+    if (err?.code === 'permission-denied' || err?.message?.includes('permission')) {
+      handleFirestoreError(err, OperationType.WRITE, `${LOAN_COLLECTION}/${id}`);
+    } else {
+      console.warn('Update plafon ke Firestore tertunda (offline/cache aktif):', err?.message || err);
+    }
+  }
 }
 
 /**
@@ -175,7 +306,7 @@ export async function seedInitialApplicationsIfEmpty(initialApps: LoanApplicatio
     if (existingSnap.empty) {
       console.log('Seeding initial loan applications to Firestore...');
       for (const appItem of initialApps) {
-        await setDoc(doc(db, LOAN_COLLECTION, appItem.id), appItem);
+        await setDoc(doc(db, LOAN_COLLECTION, appItem.id), cleanUndefined(appItem), { merge: true });
       }
       return true;
     }

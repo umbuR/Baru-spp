@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { LoanApplication } from '../types';
+import { LoanApplication, SuratSitaRecord } from '../types';
 
 export function formatRupiah(amount: number): string {
   return new Intl.NumberFormat('id-ID', {
@@ -62,13 +62,17 @@ export function getLegalDateComponents(dateStr: string) {
  * Generates an official Indonesian legal Loan Agreement PDF using jsPDF
  * formatted exactly according to the requested Draft Surat Perjanjian Pinjaman
  */
-export async function generateLoanAgreementPdf(app: LoanApplication): Promise<jsPDF> {
+export async function generateLoanAgreementPdf(
+  app: LoanApplication,
+  options?: { blankTemplate?: boolean }
+): Promise<jsPDF> {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4'
   });
 
+  const isBlank = options?.blankTemplate ?? false;
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 16;
   const contentWidth = pageWidth - margin * 2;
@@ -91,7 +95,13 @@ export async function generateLoanAgreementPdf(app: LoanApplication): Promise<js
   doc.text('PM MITRA SEJAHTERA BERSAMA', margin + 6, y + 6);
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
-  doc.text('Lembaga Pembiayaan & Kemitraan Mandiri | No. Kontrak: ' + app.contractNumber, margin + 6, y + 11);
+  doc.text(
+    isBlank 
+      ? 'Lembaga Pembiayaan & Kemitraan Mandiri | Blanko Resmi Surat Perjanjian Pinjaman'
+      : `Lembaga Pembiayaan & Kemitraan Mandiri | No. Kontrak: ${app.contractNumber}`, 
+    margin + 6, 
+    y + 11
+  );
 
   y += 20;
 
@@ -102,8 +112,8 @@ export async function generateLoanAgreementPdf(app: LoanApplication): Promise<js
   doc.text('SURAT PERJANJIAN PINJAMAN', pageWidth / 2, y, { align: 'center' });
   y += 6;
 
-  // Tagging Lokasi GPS Satelit (Jika Ada)
-  if (app.locationTag) {
+  // Tagging Lokasi GPS Satelit (Jika Ada dan Bukan Blanko)
+  if (!isBlank && app.locationTag) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.8);
     doc.setTextColor(2, 132, 199);
@@ -121,56 +131,34 @@ export async function generateLoanAgreementPdf(app: LoanApplication): Promise<js
   const terbilangPinjaman = numberToWordsIndo(app.loan.loanAmount);
 
   // Opening statement
-  const openingText = `Pada hari ini ${hari} tanggal ${tanggal} bulan ${bulan} tahun ${tahun}, kami yang bertanda tangan di bawah ini:`;
+  const openingText = isBlank
+    ? 'Pada hari ini _________ tanggal ___ bulan ______ tahun _____, kami yang bertanda tangan di bawah ini:'
+    : `Pada hari ini ${hari} tanggal ${tanggal} bulan ${bulan} tahun ${tahun}, kami yang bertanda tangan di bawah ini:`;
   doc.text(openingText, margin, y);
   y += 6;
 
-  // PIHAK PERTAMA
+  // PIHAK PERTAMA (Pemberi Pinjaman)
   doc.setFont('helvetica', 'bold');
   doc.text('PIHAK PERTAMA (Pemberi Pinjaman)', margin, y);
   y += 4;
   doc.setFont('helvetica', 'normal');
-  doc.text('Nama       : Umbu Rihi Ninggeding', margin + 4, y);
+  doc.text('Nama : Umbu Rihi Ninggeding', margin + 4, y);
   y += 4;
-  doc.text('Alamat     : Patawang', margin + 4, y);
+  doc.text('Alamat : Patawang', margin + 4, y);
   y += 4;
-  doc.text('No. HP     : 085173237621', margin + 4, y);
+  doc.text('No. HP : 085173237621', margin + 4, y);
   y += 6;
 
-  // PIHAK KEDUA
+  // PIHAK KEDUA (Peminjam/Nasabah)
   doc.setFont('helvetica', 'bold');
   doc.text('PIHAK KEDUA (Peminjam/Nasabah)', margin, y);
   y += 4;
   doc.setFont('helvetica', 'normal');
-  doc.text(`Nama       : ${app.applicant.fullName}`, margin + 4, y);
+  doc.text(`Nama : ${isBlank ? '____________________' : app.applicant.fullName}`, margin + 4, y);
   y += 4;
-  doc.text(`Alamat     : ${app.applicant.address}`, margin + 4, y);
+  doc.text(`Alamat : ${isBlank ? '____________________' : app.applicant.address}`, margin + 4, y);
   y += 4;
-  doc.text(`No. HP     : ${app.applicant.phoneNumber}`, margin + 4, y);
-  y += 4;
-  doc.text(`NIK        : ${app.applicant.nik} | Tanggungan: ${app.applicant.familyMemberCount || 1} Orang (KK)`, margin + 4, y);
-  y += 4;
-  const pinjLainDesc = app.applicant.otherLoansCount === 0 
-    ? 'Nihil / Tidak Ada' 
-    : `${app.applicant.otherLoansCount} Tempat (${formatRupiah(app.applicant.otherLoansTotalAmount || 0)})${app.applicant.otherLoansDetails ? ` - ${app.applicant.otherLoansDetails}` : ''}`;
-  doc.text(`Pinj. Lain : ${pinjLainDesc}`, margin + 4, y);
-  y += 6;
-
-  // SAKSI PERJANJIAN
-  const witnessName = app.witness?.fullName || 'Siti Rahmawati';
-  const witnessNik = app.witness?.nik || '3174055502940002';
-  const witnessRel = app.witness?.relationship || 'Rekan Kerja / Penjamin';
-  const witnessPhone = app.witness?.phoneNumber || '081299887766';
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('SAKSI (Saksi Perjanjian / Penjamin)', margin, y);
-  y += 4;
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Nama Saksi : ${witnessName}`, margin + 4, y);
-  y += 4;
-  doc.text(`NIK Saksi  : ${witnessNik} (Hubungan: ${witnessRel})`, margin + 4, y);
-  y += 4;
-  doc.text(`No. HP     : ${witnessPhone}`, margin + 4, y);
+  doc.text(`No. HP : ${isBlank ? '____________________' : app.applicant.phoneNumber}`, margin + 4, y);
   y += 6;
 
   // Agreement statement
@@ -196,131 +184,118 @@ export async function generateLoanAgreementPdf(app: LoanApplication): Promise<js
   };
 
   // PASAL 1 – JUMLAH PINJAMAN
-  const pasal1Items = [
-    '1. Pihak Pertama memberikan pinjaman kepada Pihak Kedua sebesar:',
-    `2. ${formatRupiah(app.loan.loanAmount)}`,
-    `3. (${terbilangPinjaman} rupiah)`,
-    '4. Dana dinyatakan diterima penuh oleh Pihak Kedua tanpa paksaan dari pihak manapun.'
-  ];
-  if (app.loan.isModifiedByAdmin) {
-    pasal1Items.push(
-      `5. * Catatan Penyesuaian Verifikator: Plafon pinjaman disetujui sebesar ${formatRupiah(app.loan.loanAmount)}${app.loan.originalLoanAmount && app.loan.originalLoanAmount !== app.loan.loanAmount ? ` (disesuaikan dari pengajuan awal ${formatRupiah(app.loan.originalLoanAmount)})` : ''}. Alasan: ${app.loan.modificationReason || 'Penyesuaian kapasitas bayar hasil verifikasi'}.`
-    );
-  }
+  const pasal1Items = isBlank
+    ? [
+        'Pihak Pertama memberikan pinjaman kepada Pihak Kedua sebesar:',
+        'Rp ____________________',
+        '(____________________________________________ rupiah)',
+        'Dana dinyatakan diterima penuh oleh Pihak Kedua tanpa paksaan dari pihak manapun.'
+      ]
+    : [
+        'Pihak Pertama memberikan pinjaman kepada Pihak Kedua sebesar:',
+        `Rp ${app.loan.loanAmount.toLocaleString('id-ID')}`,
+        `(${terbilangPinjaman} rupiah)`,
+        'Dana dinyatakan diterima penuh oleh Pihak Kedua tanpa paksaan dari pihak manapun.'
+      ];
   renderArticle('PASAL 1 – JUMLAH PINJAMAN', pasal1Items);
 
   // PASAL 2 – JANGKA WAKTU & PEMBAYARAN
-  renderArticle('PASAL 2 – JANGKA WAKTU & PEMBAYARAN', [
-    `1. Pinjaman wajib dilunasi dalam waktu ${tenorWeeks} minggu sejak tanggal pencairan.`,
-    `2. Sistem pembayaran: angsuran ${tenorWeeks} kali sebesar ${formatRupiah(installmentAmount)} per periode.`,
-    '3. Pihak Kedua wajib membayar tepat waktu tanpa perlu diingatkan.',
-    '4. Apabila jadwal pembayaran jatuh pada tanggal merah, hari libur nasional, atau hari libur keagamaan, pembayaran TIDAK LIBUR dan Pihak Kedua tetap wajib melakukan pembayaran angsuran sesuai jadwal.'
-  ]);
+  const pasal2Items = isBlank
+    ? [
+        'Pinjaman wajib dilunasi dalam waktu 6 minggu/bulan sejak tanggal pencairan.',
+        'Sistem pembayaran: angsuran 6 kali sebesar Rp ________________ per periode.',
+        'Pihak Kedua wajib membayar tepat waktu tanpa perlu diingatkan.',
+        'Apabila jadwal pembayaran jatuh pada tanggal merah, hari libur nasional, atau hari libur keagamaan, pembayaran TIDAK LIBUR dan Pihak Kedua tetap wajib melakukan pembayaran angsuran sesuai jadwal.'
+      ]
+    : [
+        `Pinjaman wajib dilunasi dalam waktu ${tenorWeeks} minggu/bulan sejak tanggal pencairan.`,
+        `Sistem pembayaran: angsuran ${tenorWeeks} kali sebesar Rp ${installmentAmount.toLocaleString('id-ID')} per periode.`,
+        'Pihak Kedua wajib membayar tepat waktu tanpa perlu diingatkan.',
+        'Apabila jadwal pembayaran jatuh pada tanggal merah, hari libur nasional, atau hari libur keagamaan, pembayaran TIDAK LIBUR dan Pihak Kedua tetap wajib melakukan pembayaran angsuran sesuai jadwal.'
+      ];
+  renderArticle('PASAL 2 – JANGKA WAKTU & PEMBAYARAN', pasal2Items);
 
   // PASAL 3 – POTONGAN & BIAYA
   renderArticle('PASAL 3 – POTONGAN & BIAYA', [
-    `1. Pihak Kedua menyetujui adanya potongan administrasi di awal (10% sebesar ${formatRupiah(app.loan.adminFee)}).`,
-    '2. Apabila ada potongan angsuran terakhir di awal pinjaman, maka disetujui tanpa keberatan.'
+    'Pihak Kedua menyetujui adanya potongan administrasi di awal.',
+    'Apabila ada potongan angsuran terakhir di awal pinjaman, maka disetujui tanpa keberatan.'
   ]);
 
   // PASAL 4 – DENDA KETERLAMBATAN
   renderArticle('PASAL 4 – DENDA KETERLAMBATAN', [
-    '1. Apabila Pihak Kedua terlambat melakukan pembayaran, maka dikenakan denda 5% dari angsuran mingguan.',
-    '2. Denda berlaku otomatis tanpa pemberitahuan tambahan.',
-    '3. Keterlambatan lebih dari 6 hari dianggap wanprestasi.'
+    'Apabila Pihak Kedua terlambat melakukan pembayaran, maka dikenakan denda 5% dari angsuran mingguan.',
+    'Denda berlaku otomatis tanpa pemberitahuan tambahan.',
+    'Keterlambatan lebih dari 6 hari dianggap wanprestasi.'
   ]);
 
   // PASAL 5 – TANGGUNG JAWAB NASABAH
   renderArticle('PASAL 5 – TANGGUNG JAWAB NASABAH', [
-    '1. Pihak Kedua bertanggung jawab penuh atas pelunasan pinjaman tanpa alasan apapun.',
-    '2. Alasan seperti usaha sepi, sakit, kehilangan pekerjaan, atau masalah pribadi tidak menghapus kewajiban pembayaran.',
-    '3. Pihak Kedua bersedia didatangi ke rumah, tempat usaha, atau lokasi lain untuk penagihan.',
-    '4. Apabila menghindar, Pihak Kedua bersedia ditagih melalui keluarga, pasangan, atau penjamin.'
+    'Pihak Kedua bertanggung jawab penuh atas pelunasan pinjaman tanpa alasan apapun.',
+    'Alasan seperti usaha sepi, sakit, kehilangan pekerjaan, atau masalah pribadi tidak menghapus kewajiban pembayaran.',
+    'Pihak Kedua bersedia didatangi ke rumah, tempat usaha, atau lokasi lain untuk penagihan.',
+    'Apabila menghindar, Pihak Kedua bersedia ditagih melalui keluarga, pasangan, atau penjamin.'
   ]);
 
   // PASAL 6 – SANKSI WANPRESTASI
   renderArticle('PASAL 6 – SANKSI WANPRESTASI', [
-    '1. Apabila Pihak Kedua lalai atau sengaja tidak membayar:',
-    '2. Pihak Pertama berhak melakukan penagihan langsung tanpa batas waktu.',
-    '3. Nama Pihak Kedua dapat diumumkan sebagai nasabah bermasalah di lingkungan sekitar.',
-    '4. Menunggak 2 minggu berturut-turut, Pemberi Pinjaman berhak menyita barang berharga milik peminjam (kendaraan, ternak, perhiasan, elektronik, atau barang bernilai lainnya).',
-    '5. Penyitaan barang jaminan/berharga dapat dilakukan secara langsung oleh Pihak Pertama TANPA harus melalui putusan pengadilan atau perantara lembaga hukum manapun, dan Pihak Kedua memberi kuasa penuh atas tindakan tersebut.',
-    '6. Pihak Pertama berhak menempuh jalur hukum sesuai peraturan yang berlaku.',
-    '7. Semua biaya penagihan dan hukum dibebankan kepada Pihak Kedua.'
+    'Apabila Pihak Kedua lalai atau sengaja tidak membayar:',
+    'Pihak Pertama berhak melakukan penagihan langsung tanpa batas waktu.',
+    'Nama Pihak Kedua dapat diumumkan sebagai nasabah bermasalah di lingkungan sekitar.',
+    'Menunggak 2 minggu berturut-turut, Pemberi Pinjaman berhak menyita barang berharga milik peminjam (kendaraan, ternak, perhiasan, elektronik, atau barang bernilai lainnya).',
+    'Penyitaan barang jaminan/berharga dapat dilakukan secara langsung oleh Pihak Pertama TANPA harus melalui putusan pengadilan atau perantara lembaga hukum manapun, dan Pihak Kedua memberi kuasa penuh atas tindakan tersebut.',
+    'Pihak Pertama berhak menempuh jalur hukum sesuai peraturan yang berlaku.',
+    'Semua biaya penagihan dan hukum dibebankan kepada Pihak Kedua.'
   ]);
-
-  // PASAL 6A – PENGIKATAN AGUNAN / JAMINAN (JIKA ADA)
-  if (app.collateral && app.collateral.type !== 'NONE') {
-    renderArticle('PASAL 6A – PENGIKATAN AGUNAN / JAMINAN PINJAMAN', [
-      `1. Pihak Kedua menyerahkan jaminan berupa: ${app.collateral.title}.`,
-      `2. Nomor Dokumen / Sertifikat / BPKB: ${app.collateral.documentNumber} atas nama pemilik sah: ${app.collateral.ownerName}.`,
-      `3. Taksiran nilai pasar agunan yang disepakati bersama adalah sebesar ${formatRupiah(app.collateral.estimatedValue)}.`,
-      `4. Deskripsi & kondisi jaminan: ${app.collateral.description || 'Kondisi lengkap dan orisinil'}.`,
-      '5. Pihak Kedua memberi kuasa penuh dan mutlak kepada Pihak Pertama untuk menyita, menguasai, dan menjual/melelang jaminan tersebut tanpa proses pengadilan jika terjadi wanprestasi.'
-    ]);
-  }
 
   // PASAL 7 – JAMINAN MORAL
   renderArticle('PASAL 7 – JAMINAN MORAL', [
-    '1. Pihak Kedua menyatakan:',
-    '2. Meminjam dalam kondisi sadar dan tanpa paksaan.',
-    '3. Bersedia menjaga nama baik pribadi dan keluarga.',
-    '4. Siap bertanggung jawab penuh sampai pinjaman lunas.'
+    'Pihak Kedua menyatakan:',
+    'Meminjam dalam kondisi sadar dan tanpa paksaan.',
+    'Bersedia menjaga nama baik pribadi dan keluarga.',
+    'Siap bertanggung jawab penuh sampai pinjaman lunas.'
   ]);
 
-  // PASAL 8 – PENUTUP & PENANDATANGANAN SAKSI
-  renderArticle('PASAL 8 – PENUTUP & PENANDATANGANAN SAKSI', [
-    '1. Perjanjian ini dibuat dengan sebenar-benarnya, ditandatangani di atas meterai sah oleh Pihak Pertama dan Pihak Kedua, serta disaksikan secara langsung oleh Saksi yang cakap hukum.',
-    '2. Seluruh pihak telah membaca, memahami, dan menyetujui seluruh isi perjanjian tanpa paksaan dari pihak manapun serta memiliki kekuatan hukum yang mengikat.',
-    `3. Pihak Kedua menyatakan dengan sesungguhnya bahwa data tanggungan (${app.applicant.familyMemberCount || 1} orang) dan pinjaman (${app.applicant.otherLoansCount || 0} tempat lain) diisi secara jujur tanpa manipulasi, serta penandatanganan ini terikat pada geotagging koordinat fisik GPS: Lat ${app.locationTag?.latitude || '-'}, Long ${app.locationTag?.longitude || '-'}.`
+  // PASAL 8 – PENUTUP
+  renderArticle('PASAL 8 – PENUTUP', [
+    'Perjanjian ini dibuat dengan sebenar-benarnya, ditandatangani di atas materai, dan memiliki kekuatan hukum yang mengikat kedua belah pihak.'
   ]);
 
   // Closing execution info
   checkPageBreak(50);
   doc.setFont('helvetica', 'normal');
-  doc.text('Dibuat di : Patawang', margin, y);
+  doc.text(`Dibuat di : ${isBlank ? '___________________' : 'Patawang'}`, margin, y);
   y += 4;
-  doc.text(`Tanggal   : ${tanggal} ${bulan} ${tahun}`, margin, y);
+  doc.text(`Tanggal   : ${isBlank ? '___________________' : `${tanggal} ${bulan} ${tahun}`}`, margin, y);
   y += 7;
 
-  // Signatures: 3 Columns
+  // Signatures
   const col1X = margin;
-  const col2X = margin + 60;
-  const col3X = margin + 120;
+  const col2X = margin + 90;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
-  doc.text('PIHAK PERTAMA', col1X, y);
-  doc.text('PIHAK KEDUA', col2X, y);
-  doc.text('SAKSI PERJANJIAN', col3X, y);
-  y += 3.5;
+  doc.text('PIHAK PERTAMA (Pemberi Pinjaman)', col1X, y);
+  doc.text('PIHAK KEDUA (Peminjam/Nasabah)', col2X, y);
+  y += 4;
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(100, 116, 139);
-  doc.text('(Pemberi Pinjaman)', col1X, y);
-  doc.text('(Peminjam/Nasabah)', col2X, y);
-  doc.text('(Saksi Sah / Penjamin)', col3X, y);
-  y += 3;
-
-  // Col 1: Pihak Pertama Digital Seal Box
+  // Col 1: Pihak Pertama Digital Seal / Signature
   doc.setDrawColor(37, 99, 235);
-  doc.rect(col1X, y + 1, 46, 16);
+  doc.rect(col1X, y + 1, 55, 18);
   doc.setTextColor(37, 99, 235);
-  doc.setFontSize(6.5);
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
-  doc.text('DIGITALLY CERTIFIED', col1X + 4, y + 6);
-  doc.setFontSize(6);
-  doc.text('UMBU RIHI NINGGEDING', col1X + 4, y + 10);
+  doc.text('DIGITALLY CERTIFIED', col1X + 4, y + 7);
+  doc.setFontSize(6.5);
+  doc.text('UMBU RIHI NINGGEDING', col1X + 4, y + 12);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5);
-  doc.text('PM MITRA SEJAHTERA BERSAMA', col1X + 4, y + 14);
+  doc.setFontSize(5.5);
+  doc.text('PM MITRA SEJAHTERA BERSAMA', col1X + 4, y + 16);
 
-  // Col 2: Materai 10.000 Box
+  // Col 2: Materai 10.000 Box & Signature
   const matX = col2X;
   const matY = y + 1;
-  const matW = 20;
-  const matH = 16;
+  const matW = 22;
+  const matH = 18;
 
   doc.setFillColor(255, 241, 242);
   doc.rect(matX, matY, matW, matH, 'F');
@@ -333,87 +308,59 @@ export async function generateLoanAgreementPdf(app: LoanApplication): Promise<js
 
   doc.setTextColor(190, 18, 60);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(4.5);
-  doc.text('METERAI', matX + matW / 2, matY + 3, { align: 'center' });
-  doc.setFontSize(8);
-  doc.text('10000', matX + matW / 2, matY + 7.5, { align: 'center' });
-  doc.setFontSize(3.8);
+  doc.setFontSize(5);
+  doc.text('METERAI', matX + matW / 2, matY + 4, { align: 'center' });
+  doc.setFontSize(8.5);
+  doc.text('10000', matX + matW / 2, matY + 9, { align: 'center' });
+  doc.setFontSize(4);
   doc.setFont('helvetica', 'normal');
-  doc.text('SEPULUH RIBU', matX + matW / 2, matY + 10.5, { align: 'center' });
-  doc.setFontSize(3.2);
-  doc.text(`DJP-${app.contractNumber.slice(-6)}`, matX + matW / 2, matY + 14, { align: 'center' });
+  doc.text('SEPULUH RIBU', matX + matW / 2, matY + 12.5, { align: 'center' });
+  doc.setFontSize(3.5);
+  doc.text(isBlank ? 'TEMPEL DISINI' : `DJP-${app.contractNumber.slice(-6)}`, matX + matW / 2, matY + 16, { align: 'center' });
 
-  // Debtor Signature
-  try {
-    if (app.documents.signatureUrl) {
-      doc.addImage(app.documents.signatureUrl, 'PNG', matX + 10, y - 1, 38, 18);
+  // Debtor Signature if not blank
+  if (!isBlank) {
+    try {
+      if (app.documents.signatureUrl) {
+        doc.addImage(app.documents.signatureUrl, 'PNG', matX + 10, y, 42, 20);
+      }
+    } catch (err) {
+      console.warn('Could not embed signature into pdf directly:', err);
     }
-  } catch (err) {
-    console.warn('Could not embed signature into pdf directly:', err);
   }
 
-  // Col 3: Witness Signature Box
-  const witX = col3X;
-  const witY = y + 1;
-  const witW = 46;
-  const witH = 16;
-  doc.setDrawColor(16, 185, 129);
-  doc.setFillColor(240, 253, 244);
-  doc.rect(witX, witY, witW, witH, 'FD');
-
-  const witnessSig = app.documents.witnessSignatureUrl;
-  let drewWitSig = false;
-  try {
-    if (witnessSig) {
-      doc.addImage(witnessSig, 'PNG', witX + 2, witY + 1, 42, 14);
-      drewWitSig = true;
-    }
-  } catch (err) {
-    console.warn('Could not embed witness signature:', err);
-  }
-  if (!drewWitSig) {
-    doc.setTextColor(5, 150, 105);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.5);
-    doc.text('DIGITALLY SIGNED', witX + 4, witY + 6);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(5.5);
-    doc.text(`Saksi: ${witnessName}`, witX + 4, witY + 10);
-    doc.text(`NIK: ${witnessNik}`, witX + 4, witY + 14);
-  }
-
-  y += 20;
+  y += 24;
   // Names under signatures in formal Indonesian legal format
   doc.setTextColor(15, 23, 42);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
+  doc.setFontSize(8.5);
   doc.text('( Umbu Rihi Ninggeding )', col1X, y);
-  doc.text(`( ${app.applicant.fullName} )`, col2X, y);
-  doc.text(`( ${witnessName} )`, col3X, y);
-  y += 3.5;
+  doc.text(`( ${isBlank ? '____________________' : app.applicant.fullName} )`, col2X, y);
+  y += 4;
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
+  doc.setFontSize(7);
   doc.setTextColor(71, 85, 105);
   doc.text('Pemberi Pinjaman • HP: 085173237621', col1X, y);
-  doc.text(`Nasabah/Peminjam • NIK: ${app.applicant.nik}`, col2X, y);
-  doc.text(`Saksi Perjanjian • NIK: ${witnessNik}`, col3X, y);
+  doc.text(`Peminjam/Nasabah ${isBlank ? '' : `• HP: ${app.applicant.phoneNumber}`}`, col2X, y);
 
-  // Biometric Stamp Box
-  y += 7;
-  checkPageBreak(18);
-  doc.setFillColor(236, 253, 245);
-  doc.setDrawColor(16, 185, 129);
-  doc.roundedRect(margin, y, contentWidth, 13, 2, 2, 'FD');
-  doc.setTextColor(6, 95, 70);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.text('OTENTIKASI BIOMETRIK & INTEGRITAS DOKUMEN DIGITAL:', margin + 4, y + 5);
-  doc.setFont('helvetica', 'normal');
-  const bioStatus = app.biometric.isVerified 
-    ? `TERVERIFIKASI [Kredensial ID: ${app.biometric.credentialId || 'FID2-2026-OK'}] pada ${formatDateIndo(app.biometric.verifiedAt || app.createdAt)}` 
-    : 'TERVERIFIKASI DENGAN PIN SIMULATED AUTH';
-  doc.text(bioStatus, margin + 4, y + 9.5);
+  // Biometric Stamp Box (if not blank)
+  if (!isBlank) {
+    y += 8;
+    checkPageBreak(18);
+    doc.setFillColor(236, 253, 245);
+    doc.setDrawColor(16, 185, 129);
+    doc.roundedRect(margin, y, contentWidth, 13, 2, 2, 'FD');
+    doc.setTextColor(6, 95, 70);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.text('OTENTIKASI BIOMETRIK & INTEGRITAS DOKUMEN DIGITAL:', margin + 4, y + 5);
+    doc.setFont('helvetica', 'normal');
+    const bioStatus = app.biometric.isVerified 
+      ? `TERVERIFIKASI [Kredensial ID: ${app.biometric.credentialId || 'FID2-2026-OK'}] pada ${formatDateIndo(app.biometric.verifiedAt || app.createdAt)}` 
+      : 'TERVERIFIKASI DENGAN PIN SIMULATED AUTH';
+    doc.text(bioStatus, margin + 4, y + 9.5);
+  }
 
   // --- PAGE 2: Lampiran Dokumen Verifikasi (Nasabah & Saksi) ---
   doc.addPage();
@@ -462,6 +409,11 @@ export async function generateLoanAgreementPdf(app: LoanApplication): Promise<js
   y2 += 58;
 
   // BAGIAN B: DOKUMEN & VERIFIKASI SAKSI
+  const witnessName = app.witness?.fullName || 'Siti Rahmawati';
+  const witnessNik = app.witness?.nik || '3174055502940002';
+  const witnessRel = app.witness?.relationship || 'Penjamin';
+  const witnessSig = app.documents.witnessSignatureUrl;
+
   doc.setFillColor(236, 253, 245);
   doc.rect(margin, y2, contentWidth, 7, 'F');
   doc.setTextColor(6, 95, 70);
@@ -621,9 +573,593 @@ export async function generateLoanAgreementPdf(app: LoanApplication): Promise<js
 /**
  * Trigger immediate download of the generated PDF
  */
-export async function downloadLoanAgreementPdf(app: LoanApplication): Promise<void> {
-  const doc = await generateLoanAgreementPdf(app);
-  const cleanNik = app.applicant.nik || 'nasabah';
-  doc.save(`Surat_Perjanjian_Pinjaman_${cleanNik}.pdf`);
+export async function downloadLoanAgreementPdf(
+  app: LoanApplication,
+  options?: { blankTemplate?: boolean }
+): Promise<void> {
+  const doc = await generateLoanAgreementPdf(app, options);
+  const isBlank = options?.blankTemplate ?? false;
+  if (isBlank) {
+    doc.save('Blanko_Surat_Perjanjian_Pinjaman.pdf');
+  } else {
+    const cleanNik = app.applicant.nik || 'nasabah';
+    doc.save(`Surat_Perjanjian_Pinjaman_${cleanNik}.pdf`);
+  }
 }
+
+/**
+ * Generates an official Indonesian legal Surat Perintah & Berita Acara Sita Agunan PDF using jsPDF
+ */
+export async function generateSuratSitaPdf(
+  record: SuratSitaRecord,
+  options?: { blankTemplate?: boolean }
+): Promise<jsPDF> {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const isBlank = options?.blankTemplate ?? false;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 16;
+  const contentWidth = pageWidth - margin * 2;
+  let y = 14;
+
+  const checkPageBreak = (neededHeight: number) => {
+    if (y + neededHeight > 275) {
+      doc.addPage();
+      y = 15;
+    }
+  };
+
+  // Header Banner Kop Surat Resmi
+  doc.setFillColor(15, 23, 42); // Slate 900
+  doc.rect(margin, y, contentWidth, 14, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PM MITRA SEJAHTERA BERSAMA', margin + 6, y + 6);
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(
+    isBlank 
+      ? 'Koperasi Jasa Keuangan & Pembiayaan Mikro | Blanko Berita Acara Penyitaan Jaminan'
+      : 'Koperasi Jasa Keuangan & Pembiayaan Mikro Syariah / Konvensional Terdaftar',
+    margin + 6, 
+    y + 10.5
+  );
+
+  y += 18;
+
+  // Kop Info subtext
+  doc.setTextColor(51, 65, 85);
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Kantor Pusat: Gedung Menara Sejahtera Lt. 5, Jl. Jend. Sudirman Kav. 21, Jakarta | Telp: (021) 555-9012 | Email: legal@mitrasejahtera.co.id', margin, y);
+  y += 2.5;
+
+  // Double line separator
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(0.8);
+  doc.line(margin, y, margin + contentWidth, y);
+  doc.setLineWidth(0.25);
+  doc.line(margin, y + 1, margin + contentWidth, y + 1);
+  y += 6;
+
+  // Title Box
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(margin, y, contentWidth, 15, 2, 2, 'FD');
+
+  doc.setTextColor(190, 18, 60); // Rose 700
+  doc.setFontSize(9.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SURAT PERINTAH & BERITA ACARA PENYERAHAN / PENYITAAN JAMINAN (AGUNAN)', pageWidth / 2, y + 5.5, { align: 'center' });
+
+  doc.setTextColor(15, 23, 42);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  const letterNoStr = isBlank ? 'Nomor: ................................................................' : `Nomor Berkas: ${record.letterNumber}`;
+  const contractRefStr = isBlank ? 'Ref. Kontrak: ........................................' : `Ref. Surat Perjanjian Pinjaman: ${record.contractNumber}`;
+  doc.text(`${letterNoStr}  |  ${contractRefStr}`, pageWidth / 2, y + 10.5, { align: 'center' });
+
+  y += 19;
+
+  // Legal Preamble Text
+  doc.setTextColor(15, 23, 42);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  const dateFormatted = isBlank ? '..................................................' : formatDateIndo(record.executionDate);
+  doc.text(`Pada hari ini, tanggal ${dateFormatted}, bertempat di alamat debitur yang sah, kami yang bertanda tangan di bawah ini:`, margin, y);
+  y += 5;
+
+  // Box I: Pihak Pertama (Kreditur / Eksekutor)
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(margin, y, contentWidth, 21, 1.5, 1.5, 'F');
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('I. PIHAK PERTAMA (KREDITUR / PELAKSANA EKSEKUSI AGUNAN):', margin + 3, y + 4.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  const offName = isBlank ? '........................................................................' : record.officer.name;
+  const offId = isBlank ? '................................................' : (record.officer.employeeId || '-');
+  const offRole = isBlank ? '........................................................................' : record.officer.roleTitle;
+
+  doc.text(`Nama Petugas : ${offName}`, margin + 3, y + 9);
+  doc.text(`NIP / ID       : ${offId}`, margin + 3, y + 13);
+  doc.text(`Jabatan / Unit : ${offRole}  |  PM MITRA SEJAHTERA BERSAMA`, margin + 3, y + 17);
+  y += 24;
+
+  // Box II: Pihak Kedua (Debitur)
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(margin, y, contentWidth, 25, 1.5, 1.5, 'F');
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('II. PIHAK KEDUA (DEBITUR / PEMILIK JAMINAN):', margin + 3, y + 4.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  const debName = isBlank ? '........................................................................' : record.debtor.fullName;
+  const debNik = isBlank ? '................................................' : record.debtor.nik;
+  const debPhone = isBlank ? '................................................' : record.debtor.phoneNumber;
+  const debAddr = isBlank ? '........................................................................................................................' : record.debtor.address;
+
+  doc.text(`Nama Lengkap : ${debName}`, margin + 3, y + 9);
+  doc.text(`NIK (KTP)    : ${debNik}     No. Telepon / HP : ${debPhone}`, margin + 3, y + 13);
+  doc.text(`Alamat KTP   : ${debAddr.slice(0, 95)}`, margin + 3, y + 17);
+  doc.text(`Status       : Debitur Penerima Pinjaman pada Kontrak No. ${isBlank ? '..............................' : record.contractNumber}`, margin + 3, y + 21);
+  y += 28;
+
+  // Section: Dasar Hukum & Rincian Tunggakan Wanprestasi
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('DASAR HUKUM PENYITAAN & RINCIAN WANPRESTASI:', margin, y);
+  y += 4;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.text('1. Berdasarkan Pasal Perjanjian Jaminan Fidusia UU No. 42 Tahun 1999 dan/atau Pasal 1152 & 1155 KUHPerdata.', margin, y);
+  y += 4;
+  const spHistory = isBlank ? 'SP 1, SP 2, dan SP 3 / Somasi Akhir' : record.financials.warningLettersIssued;
+  doc.text(`2. Pihak Pertama telah melayangkan surat peringatan resmi (${spHistory}) namun kewajiban belum dipenuhi.`, margin, y);
+  y += 5;
+
+  // Tunggakan Box Table
+  doc.setFillColor(255, 241, 242); // Rose 50
+  doc.setDrawColor(244, 63, 94);
+  doc.roundedRect(margin, y, contentWidth, 14, 1.5, 1.5, 'FD');
+  doc.setTextColor(159, 18, 57);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+
+  const colW = contentWidth / 4;
+  const sisaPokokStr = isBlank ? 'Rp ....................' : formatRupiah(record.financials.principalRemaining);
+  const bungaStr = isBlank ? 'Rp ....................' : formatRupiah(record.financials.interestDue);
+  const dendaStr = isBlank ? 'Rp ....................' : formatRupiah(record.financials.penaltyFee);
+  const totalHutangStr = isBlank ? 'Rp ....................' : formatRupiah(record.financials.totalOverdueDebt);
+
+  doc.text('Pokok Tertunggak:', margin + 3, y + 5);
+  doc.text(sisaPokokStr, margin + 3, y + 10);
+
+  doc.text('Tunggakan Bunga:', margin + colW, y + 5);
+  doc.text(bungaStr, margin + colW, y + 10);
+
+  doc.text('Denda Keterlambatan:', margin + colW * 2, y + 5);
+  doc.text(dendaStr, margin + colW * 2, y + 10);
+
+  doc.text('TOTAL KEWAJIBAN:', margin + colW * 3, y + 5);
+  doc.text(totalHutangStr, margin + colW * 3, y + 10);
+
+  y += 18;
+
+  // Section: Rincian Objek Agunan yang Disita
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('RINCIAN OBJEK BARANG AGUNAN / JAMINAN YANG DISITA & DIAMANKAN:', margin, y);
+  y += 4;
+
+  // Table of Collateral
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(margin, y, contentWidth, 26, 1.5, 1.5, 'FD');
+
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+
+  const colTitle = isBlank ? '........................................................................' : record.collateral.title;
+  const colDoc = isBlank ? '........................................................................' : record.collateral.documentNumber;
+  const colValue = isBlank ? 'Rp ........................................' : formatRupiah(record.collateral.estimatedValue);
+  const colDesc = isBlank ? '........................................................................................................................' : (record.collateral.seizureConditionNotes || record.collateral.description);
+  const colLoc = isBlank ? '........................................................................................................................' : record.collateral.storageLocation;
+
+  doc.text(`Jenis & Nama Objek : ${record.collateral.type || 'AGUNAN'} - ${colTitle}`, margin + 3, y + 5);
+  doc.text(`Nomor BPKB/SHM/Plat: ${colDoc}   |   Taksiran Nilai: ${colValue}`, margin + 3, y + 9.5);
+  doc.text(`Kelengkapan Fisik  : ${colDesc.slice(0, 95)}`, margin + 3, y + 14);
+  doc.text(`Gudang Penyimpanan : ${colLoc.slice(0, 95)}`, margin + 3, y + 18.5);
+  doc.text(`Masa Tenggang Penebusan: ${record.redemptionDeadlineDays || 14} Hari Kalender sejak tanggal Berita Acara ini diterbitkan.`, margin + 3, y + 23);
+
+  y += 30;
+
+  // Signatures Section (3 Columns)
+  checkPageBreak(60);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('PENANDATANGANAN BERITA ACARA EKSEKUSI & PEMBUBUHAN E-METERAI 10.000:', margin, y);
+  y += 5;
+
+  const colWidthSig = contentWidth / 3;
+  const sigBoxH = 32;
+
+  // Column Headers
+  doc.setFontSize(7.5);
+  doc.text('PIHAK PERTAMA (Kreditur)', margin + colWidthSig * 0 + 2, y);
+  doc.text('SAKSI LAPANGAN (RT/Aparat)', margin + colWidthSig * 1 + 2, y);
+  doc.text('PIHAK KEDUA (Debitur)', margin + colWidthSig * 2 + 2, y);
+  y += 2.5;
+
+  // Draw signature boxes
+  for (let i = 0; i < 3; i++) {
+    doc.setDrawColor(203, 213, 225);
+    doc.rect(margin + colWidthSig * i, y, colWidthSig - 2, sigBoxH);
+  }
+
+  // Embed Signatures & e-Meterai 10000
+  if (!isBlank) {
+    // 1. Officer signature
+    try {
+      if (record.officer.signatureUrl) {
+        doc.addImage(record.officer.signatureUrl, 'PNG', margin + 2, y + 3, colWidthSig - 6, sigBoxH - 6);
+      }
+    } catch {
+      // Ignore
+    }
+
+    // 2. Witness signature
+    try {
+      if (record.witness.signatureUrl) {
+        doc.addImage(record.witness.signatureUrl, 'PNG', margin + colWidthSig + 2, y + 3, colWidthSig - 6, sigBoxH - 6);
+      }
+    } catch {
+      // Ignore
+    }
+
+    // 3. Debtor signature + e-Meterai 10000 Asli
+    const debtorBoxX = margin + colWidthSig * 2;
+    const hasEmet = record.emeterai?.hasEmeterai ?? true;
+
+    if (hasEmet) {
+      // Draw Authentic e-Meterai 10000 Graphic Stamp in Debtor box
+      const emetW = 20;
+      const emetH = 26;
+      const emetX = debtorBoxX + 2;
+      const emetY = y + 3;
+
+      // E-meterai background & border
+      doc.setFillColor(255, 241, 242); // rose-50
+      doc.setDrawColor(190, 18, 60); // rose-700
+      doc.setLineWidth(0.4);
+      doc.roundedRect(emetX, emetY, emetW, emetH, 1, 1, 'FD');
+
+      // Top ribbon
+      doc.setFillColor(136, 19, 55); // rose-900
+      doc.rect(emetX, emetY, emetW, 4, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(4.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text('E-METERAI 10000', emetX + emetW / 2, emetY + 2.8, { align: 'center' });
+
+      // Nominal 10000
+      doc.setTextColor(159, 18, 57);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text('10000', emetX + emetW / 2, emetY + 9.5, { align: 'center' });
+
+      doc.setFontSize(3.8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('SEPULUH RIBU RUPIAH', emetX + emetW / 2, emetY + 12.5, { align: 'center' });
+
+      // Mini QR box simulation
+      doc.setDrawColor(159, 18, 57);
+      doc.setFillColor(255, 255, 255);
+      doc.rect(emetX + emetW / 2 - 4.5, emetY + 14, 9, 7, 'FD');
+      doc.setFontSize(3.2);
+      doc.text('QR VALID', emetX + emetW / 2, emetY + 18.5, { align: 'center' });
+
+      // Serial string
+      const snStr = record.emeterai?.serialNumber || 'SN: 2026-EMET-10K';
+      doc.setTextColor(71, 85, 105);
+      doc.setFontSize(3);
+      doc.text(snStr.slice(0, 18), emetX + emetW / 2, emetY + 23, { align: 'center' });
+      doc.setTextColor(4, 120, 87); // Emerald
+      doc.setFont('helvetica', 'bold');
+      doc.text('PERURI TERVERIFIKASI', emetX + emetW / 2, emetY + 25, { align: 'center' });
+
+      // Debtor signature overlaying across the e-Meterai (legal standard UU Bea Meterai)
+      try {
+        if (record.debtorSignatureUrl) {
+          doc.addImage(record.debtorSignatureUrl, 'PNG', debtorBoxX + 8, y + 3, colWidthSig - 10, sigBoxH - 6);
+        }
+      } catch {
+        // Ignore
+      }
+    } else {
+      try {
+        if (record.debtorSignatureUrl) {
+          doc.addImage(record.debtorSignatureUrl, 'PNG', debtorBoxX + 2, y + 3, colWidthSig - 6, sigBoxH - 6);
+        }
+      } catch {
+        // Ignore
+      }
+    }
+  } else {
+    // Blank template placeholder
+    const debtorBoxX = margin + colWidthSig * 2;
+    doc.setDrawColor(244, 63, 94);
+    doc.setLineDashPattern([1, 1], 0);
+    doc.rect(debtorBoxX + 3, y + 3, 20, 25);
+    doc.setLineDashPattern([], 0);
+    doc.setTextColor(225, 29, 72);
+    doc.setFontSize(5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TEMPAT METERAI', debtorBoxX + 13, y + 13, { align: 'center' });
+    doc.text('ELEKTRONIK 10000', debtorBoxX + 13, y + 16, { align: 'center' });
+    doc.setFontSize(4);
+    doc.text('(TTD mengenai meterai)', debtorBoxX + 13, y + 20, { align: 'center' });
+  }
+
+  y += sigBoxH + 4;
+
+  // Names under signatures
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  const signOfficerName = isBlank ? '( ...................................... )' : `( ${record.officer.name} )`;
+  const signWitnessName = isBlank ? '( ...................................... )' : `( ${record.witness.name} )`;
+  const signDebtorName = isBlank ? '( ...................................... )' : `( ${record.debtor.fullName} )`;
+
+  doc.text(signOfficerName, margin + colWidthSig * 0 + 2, y);
+  doc.text(signWitnessName, margin + colWidthSig * 1 + 2, y);
+  doc.text(signDebtorName, margin + colWidthSig * 2 + 2, y);
+  y += 3.5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(isBlank ? 'NIP: ..............................' : `NIP: ${record.officer.employeeId || '-'}`, margin + colWidthSig * 0 + 2, y);
+  doc.text(isBlank ? 'NIK/Jabatan: ..................' : `${record.witness.relationship || 'Saksi Lapangan'}`, margin + colWidthSig * 1 + 2, y);
+  const emetStatusText = (record.emeterai?.hasEmeterai ?? true) && !isBlank ? `NIK: ${record.debtor.nik} [e-Meterai 10000 Sah]` : `NIK: ${record.debtor.nik}`;
+  doc.text(isBlank ? 'NIK: ..............................' : emetStatusText, margin + colWidthSig * 2 + 2, y);
+
+  // Footer Page 1
+  doc.setFontSize(6.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text(`Dokumen Berita Acara Sita Sah & Mengikat Hukum PM Mitra Sejahtera Bersama. No: ${record.letterNumber}. Hal 1/2`, margin, 287);
+
+  // --- PAGE 2: LAMPIRAN DOKUMENTASI FISIK & KEPEMILIKAN ---
+  doc.addPage();
+  let y2 = 14;
+
+  // Header Banner Page 2
+  doc.setFillColor(15, 23, 42);
+  doc.rect(margin, y2, contentWidth, 12, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('LAMPIRAN DOKUMENTASI FISIK, IDENTITAS & SERAH TERIMA AGUNAN', margin + 5, y2 + 5.5);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Lampiran Berita Acara Nomor: ${isBlank ? '..................................................' : record.letterNumber} | Debitur: ${isBlank ? '...........................' : record.debtor.fullName}`, margin + 5, y2 + 9.5);
+
+  y2 += 16;
+
+  // Section 1: Identitas Visual Peminjam & Saksi (3 Boxes)
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('1. DOKUMENTASI IDENTITAS PIHAK TERKAIT (FOTO KTP, PEMINJAM & SAKSI):', margin, y2);
+  y2 += 4;
+
+  const boxW3 = (contentWidth - 8) / 3;
+  const boxH3 = 45;
+
+  // 1A. Foto KTP Peminjam
+  doc.setDrawColor(203, 213, 225);
+  doc.rect(margin, y2, boxW3, boxH3);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Foto KTP Asli Peminjam:', margin + 2.5, y2 + 4);
+
+  if (!isBlank && record.debtor.ktpPhotoUrl) {
+    try {
+      doc.addImage(record.debtor.ktpPhotoUrl, 'JPEG', margin + 2, y2 + 5.5, boxW3 - 4, boxH3 - 7.5);
+    } catch {
+      doc.setFont('helvetica', 'normal');
+      doc.text('(Foto KTP Tersimpan)', margin + 6, y2 + 24);
+    }
+  } else {
+    doc.setFont('helvetica', 'normal');
+    doc.text('(Lampirkan Foto KTP)', margin + 6, y2 + 24);
+  }
+
+  // 1B. Foto Peminjam (Debitur)
+  const xB = margin + boxW3 + 4;
+  doc.setDrawColor(203, 213, 225);
+  doc.rect(xB, y2, boxW3, boxH3);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Foto Diri / Pasfoto Peminjam:', xB + 2.5, y2 + 4);
+
+  if (!isBlank && record.debtor.borrowerPhotoUrl) {
+    try {
+      doc.addImage(record.debtor.borrowerPhotoUrl, 'JPEG', xB + 2, y2 + 5.5, boxW3 - 4, boxH3 - 7.5);
+    } catch {
+      doc.setFont('helvetica', 'normal');
+      doc.text('(Foto Peminjam Tersimpan)', xB + 6, y2 + 24);
+    }
+  } else {
+    doc.setFont('helvetica', 'normal');
+    doc.text('(Lampirkan Foto Peminjam)', xB + 6, y2 + 24);
+  }
+
+  // 1C. Foto Saksi Lapangan
+  const xC = margin + (boxW3 + 4) * 2;
+  doc.setDrawColor(203, 213, 225);
+  doc.rect(xC, y2, boxW3, boxH3);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Foto Saksi Lapangan (RT/Tokoh):', xC + 2.5, y2 + 4);
+
+  if (!isBlank && record.witness.witnessPhotoUrl) {
+    try {
+      doc.addImage(record.witness.witnessPhotoUrl, 'JPEG', xC + 2, y2 + 5.5, boxW3 - 4, boxH3 - 7.5);
+    } catch {
+      doc.setFont('helvetica', 'normal');
+      doc.text('(Foto Saksi Tersimpan)', xC + 6, y2 + 24);
+    }
+  } else {
+    doc.setFont('helvetica', 'normal');
+    doc.text('(Lampirkan Foto Saksi)', xC + 6, y2 + 24);
+  }
+
+  y2 += boxH3 + 7;
+
+  // Section 2: Foto Barang Sitaan & Dokumen Kepemilikan (2 Large Boxes)
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('2. DOKUMENTASI FISIK BARANG SITAAN & DOKUMEN AGUNAN (BPKB / SHM):', margin, y2);
+  y2 += 4;
+
+  const photoBoxW = (contentWidth - 6) / 2;
+  const photoBoxH = 55;
+
+  // Box 2A: Foto Fisik Barang Sitaan
+  doc.setDrawColor(203, 213, 225);
+  doc.rect(margin, y2, photoBoxW, photoBoxH);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Foto Fisik Barang Agunan Saat Disita:', margin + 3, y2 + 4.5);
+
+  if (!isBlank && record.collateral.collateralPhotoUrl) {
+    try {
+      doc.addImage(record.collateral.collateralPhotoUrl, 'JPEG', margin + 3, y2 + 6, photoBoxW - 6, photoBoxH - 8);
+    } catch {
+      doc.setFont('helvetica', 'normal');
+      doc.text('(Foto Fisik Agunan Tersimpan di Sistem Digital)', margin + 10, y2 + 30);
+    }
+  } else {
+    doc.setFont('helvetica', 'normal');
+    doc.text('(Tempel / Lampirkan Foto Fisik Agunan)', margin + 15, y2 + 30);
+  }
+
+  // Box 2B: Foto Dokumen Agunan (BPKB / Sertifikat)
+  doc.setDrawColor(203, 213, 225);
+  doc.rect(margin + photoBoxW + 6, y2, photoBoxW, photoBoxH);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Foto Bukti Kepemilikan (BPKB / Sertifikat Asli):', margin + photoBoxW + 9, y2 + 4.5);
+
+  if (!isBlank && record.collateral.collateralDocUrl) {
+    try {
+      doc.addImage(record.collateral.collateralDocUrl, 'JPEG', margin + photoBoxW + 9, y2 + 6, photoBoxW - 6, photoBoxH - 8);
+    } catch {
+      doc.setFont('helvetica', 'normal');
+      doc.text('(Foto Dokumen Kepemilikan Tersimpan di Sistem)', margin + photoBoxW + 15, y2 + 30);
+    }
+  } else {
+    doc.setFont('helvetica', 'normal');
+    doc.text('(Tempel / Lampirkan Foto Dokumen Asli)', margin + photoBoxW + 18, y2 + 30);
+  }
+
+  y2 += photoBoxH + 6;
+
+  // Checklist Kelengkapan Barang Sitaan
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('3. LEMBAR CHECKLIST KELENGKAPAN FISIK SAAT EKSEKUSI:', margin, y2);
+  y2 += 3.5;
+
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(margin, y2, contentWidth, 30, 1.5, 1.5, 'FD');
+
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+
+  const checklistItems = [
+    '[ V ] Surat Tanda Nomor Kendaraan (STNK) / Dokumen Asli Kepemilikan',
+    '[ V ] Kunci Kontak Asli & Kunci Cadangan',
+    '[ V ] Buku Pemilik Kendaraan Bermotor (BPKB) / Sertifikat Asli di Kantor',
+    '[ V ] Kondisi Mesin / Fisik Sesuai Berita Acara Pemeriksaan Fisik',
+    '[ V ] Surat Kuasa Membebankan Hak Tanggungan / Fidusia Terdaftar',
+    '[ V ] E-Meterai 10.000 Asli Terverifikasi Sesuai UU No. 10 Th 2020'
+  ];
+
+  for (let i = 0; i < checklistItems.length; i++) {
+    const colIdx = i % 2;
+    const rowIdx = Math.floor(i / 2);
+    const itemX = margin + 4 + colIdx * (contentWidth / 2);
+    const itemY = y2 + 5 + rowIdx * 5.2;
+    doc.text(checklistItems[i], itemX, itemY);
+  }
+  y2 += 34;
+
+  // Catatan Khusus & Ketentuan Penyimpanan
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('4. CATATAN KHUSUS & PENGAWASAN ASET (ASSET RECOVERY):', margin, y2);
+  y2 += 3.5;
+
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(margin, y2, contentWidth, 22, 1.5, 1.5, 'F');
+  doc.setTextColor(51, 65, 85);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.8);
+  doc.text('a. Seluruh barang jaminan yang telah diamankan disimpan di fasilitas penyimpanan PM Mitra Sejahtera Bersama dengan penjagaan 24 jam.', margin + 4, y2 + 4.5);
+  doc.text('b. Debitur tetap memiliki hak prioritas untuk menebus dan mengambil kembali barang agunan dalam kurun waktu tenggang yang ditetapkan (14 hari).', margin + 4, y2 + 8.5);
+  doc.text('c. Apabila masa tenggang berakhir tanpa ada penyelesaian, barang akan dinilai ulang oleh juru taksir independen untuk proses lelang eksekusi.', margin + 4, y2 + 12.5);
+  doc.text('d. Dokumen Berita Acara ini diterbitkan dalam 3 (tiga) rangkap asli bertanda tangan & bermeterai elektronik dengan kekuatan pembuktian penuh.', margin + 4, y2 + 16.5);
+
+  // Footer Page 2
+  doc.setFontSize(6.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text(`Lampiran Dokumen Resmi Sita Jaminan PM Mitra Sejahtera Bersama. No: ${record.letterNumber}. Hal 2/2`, margin, 287);
+
+  return doc;
+}
+
+/**
+ * Trigger immediate download of the generated Surat Sita PDF
+ */
+export async function downloadSuratSitaPdf(
+  record: SuratSitaRecord,
+  options?: { blankTemplate?: boolean }
+): Promise<void> {
+  const doc = await generateSuratSitaPdf(record, options);
+  const isBlank = options?.blankTemplate ?? false;
+  if (isBlank) {
+    doc.save(`Blanko_Surat_Sita_Agunan_${new Date().getFullYear()}.pdf`);
+  } else {
+    const cleanLetterNo = record.letterNumber.replace(/[\/\\?%*:|"<>]/g, '_');
+    const cleanDebtor = record.debtor.fullName.replace(/\s+/g, '_');
+    doc.save(`Surat_Sita_${cleanLetterNo}_${cleanDebtor}.pdf`);
+  }
+}
+
 

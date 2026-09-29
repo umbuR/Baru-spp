@@ -30,13 +30,14 @@ export const AgreementViewerModal: React.FC<AgreementViewerModalProps> = ({
   application
 }) => {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [viewMode, setViewMode] = useState<'filled' | 'blank'>('filled');
 
   if (!isOpen) return null;
 
-  const handleDownload = async () => {
+  const handleDownload = async (blank: boolean = false) => {
     try {
       setIsDownloading(true);
-      await downloadLoanAgreementPdf(application);
+      await downloadLoanAgreementPdf(application, { blankTemplate: blank });
     } catch (err) {
       console.error('Download error:', err);
     } finally {
@@ -62,7 +63,7 @@ export const AgreementViewerModal: React.FC<AgreementViewerModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-2 sm:p-4 overflow-y-auto">
       <div className="relative w-full max-w-3xl bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
         {/* Header Bar */}
-        <div className="flex items-center justify-between px-5 py-3.5 bg-slate-800/90 border-b border-slate-700 sticky top-0 z-10">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 bg-slate-800/90 border-b border-slate-700 sticky top-0 z-10">
           <div className="flex items-center gap-2.5">
             <span className="p-2 rounded-xl bg-blue-600/20 text-blue-400">
               <FileText className="w-5 h-5" />
@@ -72,18 +73,41 @@ export const AgreementViewerModal: React.FC<AgreementViewerModalProps> = ({
                 Surat Perjanjian Pinjaman
               </h3>
               <p className="text-[11px] text-slate-400 font-mono">
-                No. Kontrak: {application.contractNumber}
+                {viewMode === 'blank' ? 'Template Format Asli (Blanko)' : `No. Kontrak: ${application.contractNumber}`}
               </p>
             </div>
           </div>
+
+          {/* Mode Switcher & Download Controls */}
           <div className="flex items-center gap-2">
+            <div className="flex items-center bg-slate-900/90 p-0.5 rounded-xl border border-slate-700 text-xs">
+              <button
+                type="button"
+                onClick={() => setViewMode('filled')}
+                className={`px-3 py-1 rounded-lg font-medium transition ${
+                  viewMode === 'filled' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Data Terisi
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('blank')}
+                className={`px-3 py-1 rounded-lg font-medium transition ${
+                  viewMode === 'blank' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Format Blanko
+              </button>
+            </div>
+
             <button
-              onClick={handleDownload}
+              onClick={() => handleDownload(viewMode === 'blank')}
               disabled={isDownloading}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md transition disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
-              {isDownloading ? 'Menyiapkan...' : 'Unduh PDF'}
+              {isDownloading ? 'Menyiapkan...' : viewMode === 'blank' ? 'Unduh Blanko PDF' : 'Unduh PDF'}
             </button>
             <button
               onClick={onClose}
@@ -170,6 +194,127 @@ export const AgreementViewerModal: React.FC<AgreementViewerModalProps> = ({
               </div>
             )}
 
+            {viewMode === 'blank' ? (
+              <div className="space-y-4 text-xs sm:text-sm text-slate-800 leading-relaxed font-sans">
+                <p className="text-justify">
+                  Pada hari ini <strong>_________</strong> tanggal <strong>___</strong> bulan <strong>______</strong> tahun <strong>_____</strong>, kami yang bertanda tangan di bawah ini:
+                </p>
+
+                <div className="space-y-3">
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <p className="font-bold text-slate-900 mb-1">PIHAK PERTAMA (Pemberi Pinjaman)</p>
+                    <div className="pl-2 space-y-0.5 text-xs sm:text-sm">
+                      <p><span className="w-24 inline-block text-slate-600">Nama</span>: Umbu Rihi Ninggeding</p>
+                      <p><span className="w-24 inline-block text-slate-600">Alamat</span>: Patawang</p>
+                      <p><span className="w-24 inline-block text-slate-600">No. HP</span>: 085173237621</p>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <p className="font-bold text-slate-900 mb-1">PIHAK KEDUA (Peminjam/Nasabah)</p>
+                    <div className="pl-2 space-y-0.5 text-xs sm:text-sm">
+                      <p><span className="w-24 inline-block text-slate-600">Nama</span>: ____________________</p>
+                      <p><span className="w-24 inline-block text-slate-600">Alamat</span>: ____________________</p>
+                      <p><span className="w-24 inline-block text-slate-600">No. HP</span>: ____________________</p>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-justify">
+                  Dengan ini sepakat mengikatkan diri dalam perjanjian pinjaman dengan ketentuan sebagai berikut:
+                </p>
+
+                <div>
+                  <h4 className="font-bold text-slate-900 uppercase">PASAL 1 – JUMLAH PINJAMAN</h4>
+                  <p className="mt-1">Pihak Pertama memberikan pinjaman kepada Pihak Kedua sebesar:</p>
+                  <p className="font-bold text-base my-1 text-slate-900">Rp ____________________</p>
+                  <p className="italic text-slate-700">(____________________________________________ rupiah)</p>
+                  <p className="mt-1">Dana dinyatakan diterima penuh oleh Pihak Kedua tanpa paksaan dari pihak manapun.</p>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-slate-900 uppercase">PASAL 2 – JANGKA WAKTU & PEMBAYARAN</h4>
+                  <p className="mt-1">Pinjaman wajib dilunasi dalam waktu 6 minggu/bulan sejak tanggal pencairan.</p>
+                  <p>Sistem pembayaran: angsuran 6 kali sebesar Rp ________________ per periode.</p>
+                  <p>Pihak Kedua wajib membayar tepat waktu tanpa perlu diingatkan.</p>
+                  <p className="text-justify">Apabila jadwal pembayaran jatuh pada tanggal merah, hari libur nasional, atau hari libur keagamaan, pembayaran TIDAK LIBUR dan Pihak Kedua tetap wajib melakukan pembayaran angsuran sesuai jadwal.</p>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-slate-900 uppercase">PASAL 3 – POTONGAN & BIAYA</h4>
+                  <p className="mt-1">Pihak Kedua menyetujui adanya potongan administrasi di awal.</p>
+                  <p>Apabila ada potongan angsuran terakhir di awal pinjaman, maka disetujui tanpa keberatan.</p>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-slate-900 uppercase">PASAL 4 – DENDA KETERLAMBATAN</h4>
+                  <p className="mt-1">Apabila Pihak Kedua terlambat melakukan pembayaran, maka dikenakan denda 5% dari angsuran mingguan.</p>
+                  <p>Denda berlaku otomatis tanpa pemberitahuan tambahan.</p>
+                  <p>Keterlambatan lebih dari 6 hari dianggap wanprestasi.</p>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-slate-900 uppercase">PASAL 5 – TANGGUNG JAWAB NASABAH</h4>
+                  <p className="mt-1">Pihak Kedua bertanggung jawab penuh atas pelunasan pinjaman tanpa alasan apapun.</p>
+                  <p className="text-justify">Alasan seperti usaha sepi, sakit, kehilangan pekerjaan, atau masalah pribadi tidak menghapus kewajiban pembayaran.</p>
+                  <p>Pihak Kedua bersedia didatangi ke rumah, tempat usaha, atau lokasi lain untuk penagihan.</p>
+                  <p>Apabila menghindar, Pihak Kedua bersedia ditagih melalui keluarga, pasangan, atau penjamin.</p>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-slate-900 uppercase">PASAL 6 – SANKSI WANPRESTASI</h4>
+                  <p className="mt-1">Apabila Pihak Kedua lalai atau sengaja tidak membayar:</p>
+                  <ul className="list-disc pl-5 space-y-1 mt-1 text-slate-800">
+                    <li>Pihak Pertama berhak melakukan penagihan langsung tanpa batas waktu.</li>
+                    <li>Nama Pihak Kedua dapat diumumkan sebagai nasabah bermasalah di lingkungan sekitar.</li>
+                    <li>Menunggak 2 minggu berturut-turut, Pemberi Pinjaman berhak menyita barang berharga milik peminjam (kendaraan, ternak, perhiasan, elektronik, atau barang bernilai lainnya).</li>
+                    <li>Penyitaan barang jaminan/berharga dapat dilakukan secara langsung oleh Pihak Pertama TANPA harus melalui putusan pengadilan atau perantara lembaga hukum manapun, dan Pihak Kedua memberi kuasa penuh atas tindakan tersebut.</li>
+                    <li>Pihak Pertama berhak menempuh jalur hukum sesuai peraturan yang berlaku.</li>
+                    <li>Semua biaya penagihan dan hukum dibebankan kepada Pihak Kedua.</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-slate-900 uppercase">PASAL 7 – JAMINAN MORAL</h4>
+                  <p className="mt-1">Pihak Kedua menyatakan:</p>
+                  <ul className="list-disc pl-5 space-y-0.5 mt-1 text-slate-800">
+                    <li>Meminjam dalam kondisi sadar dan tanpa paksaan.</li>
+                    <li>Bersedia menjaga nama baik pribadi dan keluarga.</li>
+                    <li>Siap bertanggung jawab penuh sampai pinjaman lunas.</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-slate-900 uppercase">PASAL 8 – PENUTUP</h4>
+                  <p className="mt-1 text-justify">
+                    Perjanjian ini dibuat dengan sebenar-benarnya, ditandatangani di atas materai, dan memiliki kekuatan hukum yang mengikat kedua belah pihak.
+                  </p>
+                  <div className="mt-3 space-y-1">
+                    <p>Dibuat di : ___________________</p>
+                    <p>Tanggal &nbsp; : ___________________</p>
+                  </div>
+                </div>
+
+                {/* Blank Signatures */}
+                <div className="grid grid-cols-2 gap-6 pt-6 mt-6 border-t border-slate-300 text-center">
+                  <div>
+                    <p className="font-bold text-xs text-slate-900">PIHAK PERTAMA</p>
+                    <p className="text-[10px] text-slate-500 mb-16">(Pemberi Pinjaman)</p>
+                    <p className="font-bold text-xs text-slate-900 underline">Umbu Rihi Ninggeding</p>
+                  </div>
+                  <div>
+                    <p className="font-bold text-xs text-slate-900">PIHAK KEDUA</p>
+                    <p className="text-[10px] text-slate-500 mb-3">(Peminjam / Nasabah)</p>
+                    <div className="w-24 h-14 mx-auto border-2 border-dashed border-rose-400 bg-rose-50/70 rounded flex flex-col items-center justify-center text-[9px] text-rose-700 font-bold mb-2">
+                      <span>MATERAI</span>
+                      <span>10.000</span>
+                    </div>
+                    <p className="font-bold text-xs text-slate-900 underline">( ________________________ )</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
             {/* Opening Clause */}
             <p className="text-xs sm:text-sm text-slate-800 leading-relaxed mb-4 text-justify">
               Pada hari ini <strong>{hari}</strong> tanggal <strong>{tanggal}</strong> bulan <strong>{bulan}</strong> tahun <strong>{tahun}</strong>, kami yang bertanda tangan di bawah ini:
@@ -652,26 +797,28 @@ export const AgreementViewerModal: React.FC<AgreementViewerModalProps> = ({
                 </div>
               )}
             </div>
-          </div>
-        </div>
+          </>
+        )}
+      </div>
+    </div>
 
-        {/* Modal Footer */}
-        <div className="px-5 py-3 bg-slate-800/90 border-t border-slate-700 flex justify-end gap-2.5">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-700 transition"
-          >
-            Tutup
-          </button>
-          <button
-            onClick={handleDownload}
-            disabled={isDownloading}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-900/30 transition"
-          >
-            <Download className="w-3.5 h-3.5" />
-            {isDownloading ? 'Memproses PDF...' : 'Unduh Dokumen PDF'}
-          </button>
-        </div>
+    {/* Modal Footer */}
+    <div className="px-5 py-3 bg-slate-800/90 border-t border-slate-700 flex justify-end gap-2.5">
+      <button
+        onClick={onClose}
+        className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-700 transition"
+      >
+        Tutup
+      </button>
+      <button
+        onClick={() => handleDownload(viewMode === 'blank')}
+        disabled={isDownloading}
+        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-900/30 transition"
+      >
+        <Download className="w-3.5 h-3.5" />
+        {isDownloading ? 'Memproses PDF...' : viewMode === 'blank' ? 'Unduh Blanko Template' : 'Unduh Dokumen PDF'}
+      </button>
+    </div>
       </div>
     </div>
   );

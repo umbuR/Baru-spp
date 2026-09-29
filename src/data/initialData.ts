@@ -1,4 +1,4 @@
-import { LoanApplication } from '../types';
+import { LoanApplication, SuratSitaRecord } from '../types';
 
 // Helper to generate SVG Data URLs for realistic placeholder documents
 export function createSvgDataUrl(svgString: string): string {
@@ -248,6 +248,101 @@ export const sampleWitnessSignatureSvg = createSvgDataUrl(`
   <text x="30" y="185" font-family="'JetBrains Mono', monospace" font-size="11" fill="#0f766e">Verified Witness E-Sign | SITI RAHMAWATI | 2026-09-11 15:43 WIB</text>
 </svg>
 `);
+
+// Official Authentic E-Meterai Rp 10.000 (Peruri / Ditjen Pajak RI - UU Bea Meterai No. 10 Tahun 2020)
+export function generateEmeteraiSvg(serialNumber = '2026-PMSB-EMET10K-9812401', dateStr = '2026-09-23'): string {
+  return createSvgDataUrl(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 380" width="320" height="380">
+  <defs>
+    <linearGradient id="emetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff1f2"/>
+      <stop offset="50%" stop-color="#ffe4e6"/>
+      <stop offset="100%" stop-color="#fecdd3"/>
+    </linearGradient>
+    <radialGradient id="emetShield" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fda4af"/>
+      <stop offset="100%" stop-color="#be123c"/>
+    </radialGradient>
+    <pattern id="guilloche" width="16" height="16" patternUnits="userSpaceOnUse">
+      <circle cx="8" cy="8" r="7" fill="none" stroke="#be123c" stroke-width="0.5" opacity="0.3"/>
+      <path d="M0 8 Q8 0 16 8 Q8 16 0 8" fill="none" stroke="#9f1239" stroke-width="0.4" opacity="0.3"/>
+    </pattern>
+  </defs>
+
+  <!-- Outer Postage Stamp Perforations or Border -->
+  <rect x="5" y="5" width="310" height="370" rx="10" fill="url(#emetGrad)" stroke="#be123c" stroke-width="3"/>
+  <rect x="12" y="12" width="296" height="356" rx="6" fill="url(#guilloche)" stroke="#9f1239" stroke-width="1.2"/>
+  <rect x="18" y="18" width="284" height="344" rx="4" fill="#ffffff" fill-opacity="0.88" stroke="#fda4af" stroke-width="1"/>
+
+  <!-- Top Ribbon / Garuda Header -->
+  <rect x="25" y="24" width="270" height="36" rx="5" fill="#881337"/>
+  <text x="160" y="42" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-size="10.5" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1.5">REPUBLIK INDONESIA</text>
+  <text x="160" y="54" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-size="8" font-weight="bold" fill="#fecdd3" text-anchor="middle" letter-spacing="1">METERAI ELEKTRONIK</text>
+
+  <!-- Garuda Silhouette Center Emblem -->
+  <g transform="translate(160, 95)">
+    <circle cx="0" cy="0" r="26" fill="url(#emetShield)" stroke="#881337" stroke-width="1.5"/>
+    <path d="M-18 -8 Q-10 -22 0 -14 Q10 -22 18 -8 Q12 12 0 20 Q-12 12 -18 -8 Z" fill="#ffffff"/>
+    <path d="M-8 -6 L8 -6 L0 10 Z" fill="#be123c"/>
+    <circle cx="0" cy="-2" r="3" fill="#fbbf24"/>
+  </g>
+
+  <!-- Nominal 10000 Big and Bold -->
+  <text x="160" y="152" font-family="'Plus Jakarta Sans', 'Arial Black', sans-serif" font-size="34" font-weight="900" fill="#881337" text-anchor="middle" letter-spacing="2">10000</text>
+  <text x="160" y="172" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-size="9" font-weight="800" fill="#9f1239" text-anchor="middle" letter-spacing="1.5">SEPULUH RIBU RUPIAH</text>
+  <text x="160" y="186" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-size="7.5" font-weight="600" fill="#be123c" text-anchor="middle">PAJAK MEMBANGUN BANGSA</text>
+
+  <!-- Guilloche Security Divider -->
+  <line x1="32" y1="195" x2="288" y2="195" stroke="#be123c" stroke-width="1.5" stroke-dasharray="4,2"/>
+
+  <!-- QR Code & Verification Block -->
+  <g transform="translate(32, 205)">
+    <!-- QR Box -->
+    <rect width="65" height="65" rx="4" fill="#ffffff" stroke="#881337" stroke-width="1.5"/>
+    <!-- QR Finder patterns -->
+    <rect x="6" y="6" width="18" height="18" fill="#881337"/>
+    <rect x="9" y="9" width="12" height="12" fill="#ffffff"/>
+    <rect x="11" y="11" width="8" height="8" fill="#881337"/>
+
+    <rect x="41" y="6" width="18" height="18" fill="#881337"/>
+    <rect x="44" y="9" width="12" height="12" fill="#ffffff"/>
+    <rect x="46" y="11" width="8" height="8" fill="#881337"/>
+
+    <rect x="6" y="41" width="18" height="18" fill="#881337"/>
+    <rect x="9" y="44" width="12" height="12" fill="#ffffff"/>
+    <rect x="11" y="46" width="8" height="8" fill="#881337"/>
+
+    <!-- Data bits -->
+    <rect x="28" y="10" width="8" height="4" fill="#881337"/>
+    <rect x="28" y="20" width="8" height="8" fill="#881337"/>
+    <rect x="42" y="32" width="6" height="6" fill="#881337"/>
+    <rect x="30" y="45" width="16" height="6" fill="#881337"/>
+    <rect x="52" y="48" width="6" height="6" fill="#881337"/>
+  </g>
+
+  <!-- Serial Info & Peruri Signature -->
+  <g transform="translate(108, 214)">
+    <text x="0" y="10" font-family="'JetBrains Mono', monospace" font-size="7.5" font-weight="bold" fill="#0f172a">SN ELEKTRONIK:</text>
+    <text x="0" y="24" font-family="'JetBrains Mono', monospace" font-size="8.5" font-weight="900" fill="#881337">${serialNumber}</text>
+    <text x="0" y="38" font-family="sans-serif" font-size="7" fill="#475569">TERVERIFIKASI: PERURI &amp; DJP</text>
+    <text x="0" y="50" font-family="sans-serif" font-size="7" fill="#475569">Tgl: ${dateStr}</text>
+    <text x="0" y="62" font-family="sans-serif" font-size="6.5" font-weight="bold" fill="#047857">STATUS: TERBUKTI SAH &amp; VALID</text>
+  </g>
+
+  <!-- Legal Footnote & Security Seal -->
+  <rect x="22" y="280" width="276" height="45" rx="4" fill="#fff1f2" stroke="#fecdd3" stroke-width="1"/>
+  <text x="160" y="295" font-family="'Plus Jakarta Sans', sans-serif" font-size="7.5" font-weight="bold" fill="#881337" text-anchor="middle">DIBUBUHKAN SECARA ELEKTRONIK</text>
+  <text x="160" y="307" font-family="sans-serif" font-size="6.5" fill="#475569" text-anchor="middle">Sesuai UU RI No. 10 Tahun 2020 tentang Bea Meterai</text>
+  <text x="160" y="318" font-family="sans-serif" font-size="6.5" font-weight="600" fill="#9f1239" text-anchor="middle">PM MITRA SEJAHTERA BERSAMA - ASSET RECOVERY</text>
+
+  <!-- Bottom microprint bar -->
+  <rect x="22" y="332" width="276" height="18" rx="3" fill="#881337"/>
+  <text x="160" y="344" font-family="'JetBrains Mono', monospace" font-size="7" font-weight="bold" fill="#ffffff" text-anchor="middle">AUTHENTIC DIGITAL STAMP 10000</text>
+</svg>
+`);
+}
+
+export const sampleEmeterai10000Svg = generateEmeteraiSvg('2026-PMSB-EMET10K-9812401', '2026-09-23');
 
 // Sample Collateral Documents & Photos
 export const sampleSertifikatTanahSvg = createSvgDataUrl(`
@@ -648,7 +743,15 @@ export const INITIAL_APPLICATIONS: LoanApplication[] = [
     status: 'APPROVED',
     verificationNotes: 'Berkas lengkap, kesesuaian KTP dan KK valid, jaminan BPKB Mobil valid atas nama pemohon, skor kredit memadai.',
     verifiedBy: 'Irfan Hakim (Credit Analyst)',
-    verifiedAt: '2026-09-09T16:20:00Z'
+    verifiedAt: '2026-09-09T16:20:00Z',
+    statusLogs: [
+      {
+        status: 'APPROVED',
+        changedBy: 'Irfan Hakim (Credit Analyst)',
+        changedAt: '2026-09-09T16:20:00Z',
+        notes: 'Berkas lengkap, kesesuaian KTP dan KK valid, jaminan BPKB Mobil valid atas nama pemohon, skor kredit memadai.'
+      }
+    ]
   },
   {
     id: 'LOAN-2026-0885',
@@ -731,6 +834,144 @@ export const INITIAL_APPLICATIONS: LoanApplication[] = [
     status: 'REJECTED',
     verificationNotes: 'Foto KTP terlalu buram pada bagian NIK dan foto selfie tidak sesuai dengan fisik di KTP.',
     verifiedBy: 'Maya Putri (Verifikator Dokumen)',
-    verifiedAt: '2026-09-08T11:45:00Z'
+    verifiedAt: '2026-09-08T11:45:00Z',
+    statusLogs: [
+      {
+        status: 'REJECTED',
+        changedBy: 'Maya Putri (Verifikator Dokumen)',
+        changedAt: '2026-09-08T11:45:00Z',
+        notes: 'Foto KTP terlalu buram pada bagian NIK dan foto selfie tidak sesuai dengan fisik di KTP.'
+      }
+    ]
   }
 ];
+
+export const INITIAL_SURAT_SITA: SuratSitaRecord[] = [
+  {
+    id: 'sita-001',
+    letterNumber: 'BA-SITA/PMSB/2026/09/0014',
+    contractNumber: 'SPP/PINJ/2026/VIII/0028',
+    applicationId: 'app-002',
+    createdAt: '2026-09-18T10:30:00Z',
+    executionDate: '2026-09-18',
+    status: 'TEREKSEKUSI',
+    debtor: {
+      fullName: 'Dedy Iskandar',
+      nik: '3174052309850004',
+      phoneNumber: '081377889900',
+      address: 'Jl. Rawamangun No. 18, RT 02/05, Pulo Gadung, Jakarta Timur',
+      emergencyContactName: 'Hj. Aminah (Ibu Kandung)',
+      emergencyContactPhone: '081311223344',
+      ktpPhotoUrl: sampleKtpSvg,
+      borrowerPhotoUrl: sampleSelfieSvg
+    },
+    financials: {
+      principalRemaining: 15000000,
+      interestDue: 2250000,
+      penaltyFee: 750000,
+      totalOverdueDebt: 18000000,
+      overdueDays: 68,
+      warningLettersIssued: 'SP 1 (15/07/2026), SP 2 (05/08/2026), SP 3 / Somasi Akhir (25/08/2026)'
+    },
+    collateral: {
+      type: 'BPKB_MOTOR',
+      title: 'Sepeda Motor Honda Vario 160 CBS',
+      ownerName: 'Dedy Iskandar',
+      documentNumber: 'BPKB No. M-8891283 / Plat B 4821 TKQ',
+      description: 'Tahun 2023, Warna Hitam Doff, No. Rangka: MH1KF123K98765, No. Mesin: KF12E-18239, STNK Asli, Kunci Kontak 2 Buah',
+      estimatedValue: 21000000,
+      collateralPhotoUrl: sampleBpkbMotorSvg,
+      collateralDocUrl: sampleBpkbMotorSvg,
+      seizureConditionNotes: 'Unit motor dalam kondisi prima dan hidup normal, bodi terawat dengan lecet pemakaian wajar, speedometer 18.420 km, spion lengkap, ban depan/belakang tebal.',
+      storageLocation: 'Pool & Gudang Penyimpanan Aset Jaminan PM Mitra Sejahtera Bersama, Jl. Gatot Subroto Kav. 45 Jakarta'
+    },
+    officer: {
+      name: 'Hendra Wijaya, S.H.',
+      employeeId: 'PMSB-REC-008',
+      roleTitle: 'Koordinator Remedial & Eksekusi Agunan',
+      signatureUrl: sampleSignatureSvg
+    },
+    witness: {
+      name: 'Bambang Sujarwo',
+      nik: '3175021406780001',
+      relationship: 'Ketua RT 02 / Saksi Lingkungan Setempat',
+      phone: '081288776655',
+      witnessPhotoUrl: sampleWitnessSelfieSvg,
+      signatureUrl: sampleWitnessSignatureSvg
+    },
+    debtorSignatureUrl: sampleSignatureSvg,
+    emeterai: {
+      hasEmeterai: true,
+      serialNumber: '2026-PMSB-EMET10K-9812401',
+      stampedAt: '2026-09-20T10:30:00Z',
+      peruriCode: 'PERURI-DJP-10000-882199',
+      verified: true
+    },
+    notes: 'Debitur menyepakati penyerahan agunan sukarela untuk diamankan di gudang kreditur selama 14 hari kalender guna penyelesaian kewajiban sebelum dilakukan proses pelelangan/likuidasi agunan.',
+    redemptionDeadlineDays: 14
+  },
+  {
+    id: 'sita-002',
+    letterNumber: 'SP-SITA/PMSB/2026/09/0019',
+    contractNumber: 'SPP/PINJ/2026/IX/0035',
+    applicationId: 'app-001',
+    createdAt: '2026-09-22T08:00:00Z',
+    executionDate: '2026-09-25',
+    status: 'DITERBITKAN',
+    debtor: {
+      fullName: 'Budi Santoso',
+      nik: '3174051208920003',
+      phoneNumber: '081234567890',
+      address: 'Jl. Tebet Barat Dalam No. 45, RT 04/08, Kel. Tebet Barat, Jakarta Selatan',
+      emergencyContactName: 'Siti Rahmawati (Istri)',
+      emergencyContactPhone: '081299887766',
+      ktpPhotoUrl: sampleKtpSvg,
+      borrowerPhotoUrl: sampleSelfieSvg
+    },
+    financials: {
+      principalRemaining: 25000000,
+      interestDue: 3500000,
+      penaltyFee: 1200000,
+      totalOverdueDebt: 29700000,
+      overdueDays: 45,
+      warningLettersIssued: 'SP 1 (18/08/2026), SP 2 (01/09/2026), SP 3 / Somasi Akhir (15/09/2026)'
+    },
+    collateral: {
+      type: 'BPKB_MOBIL',
+      title: 'Mobil Daihatsu Gran Max Pick Up 1.5',
+      ownerName: 'Budi Santoso',
+      documentNumber: 'BPKB No. B-9982310 / Plat B 9210 SAC',
+      description: 'Tahun 2022, Warna Putih, No. Rangka: MHKP32199887, No. Mesin: 3SZ-VE-88912, STNK Asli Berlaku, Kunci Kontak',
+      estimatedValue: 85000000,
+      collateralPhotoUrl: sampleBpkbMobilSvg,
+      collateralDocUrl: sampleBpkbMobilSvg,
+      seizureConditionNotes: 'Kendaraan operasional pick up, terdapat goresan pemakaian usaha pada bak muatan, mesin hidup lancar dan dokumen kelengkapan lengkap.',
+      storageLocation: 'Pool & Gudang Penyimpanan Aset Jaminan PM Mitra Sejahtera Bersama, Jl. Gatot Subroto Kav. 45 Jakarta'
+    },
+    officer: {
+      name: 'Hendra Wijaya, S.H.',
+      employeeId: 'PMSB-REC-008',
+      roleTitle: 'Koordinator Remedial & Eksekusi Agunan',
+      signatureUrl: sampleSignatureSvg
+    },
+    witness: {
+      name: 'Agus Pratama',
+      nik: '3174051904850002',
+      relationship: 'Tokoh Lingkungan / Saksi Warga',
+      phone: '081399881122',
+      witnessPhotoUrl: sampleWitnessSelfieSvg,
+      signatureUrl: sampleWitnessSignatureSvg
+    },
+    debtorSignatureUrl: sampleSignatureSvg,
+    emeterai: {
+      hasEmeterai: true,
+      serialNumber: '2026-PMSB-EMET10K-9812402',
+      stampedAt: '2026-09-22T08:15:00Z',
+      peruriCode: 'PERURI-DJP-10000-882200',
+      verified: true
+    },
+    notes: 'Surat Tugas dan Berita Acara Penyitaan Agunan telah diterbitkan dan ditugaskan kepada Tim Eksekusi Lapangan.',
+    redemptionDeadlineDays: 14
+  }
+];
+

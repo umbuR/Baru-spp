@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { 
   User, 
@@ -32,7 +32,9 @@ import {
   Users2,
   DollarSign,
   LocateFixed,
-  ExternalLink
+  ExternalLink,
+  Image as ImageIcon,
+  Upload
 } from 'lucide-react';
 import { 
   ApplicantData, 
@@ -42,7 +44,8 @@ import {
   DocumentType, 
   CollateralType, 
   CollateralData,
-  LocationTagData
+  LocationTagData,
+  UserRole
 } from '../types';
 import { CameraCaptureModal } from './CameraCaptureModal';
 import { SignaturePad } from './SignaturePad';
@@ -65,49 +68,119 @@ import {
 } from '../data/initialData';
 import { PWAInstallButton } from './PWAInstallButton';
 
+const DRAFT_STORAGE_KEY = 'pm_loan_form_draft_v2';
+
+const defaultApplicant: ApplicantData = {
+  fullName: 'Rian Pratama',
+  nik: '3171021405950001',
+  kkNumber: '3171022008160003',
+  birthPlace: 'Jakarta',
+  birthDate: '1995-05-14',
+  gender: 'Laki-laki',
+  address: 'Jl. Melati Indah No. 12, Kel. Kebon Jeruk, Jakarta Barat',
+  phoneNumber: '081288997711',
+  email: 'rian.pratama@gmail.com',
+  job: 'Karyawan Swasta',
+  monthlyIncome: 9500000,
+  bankName: 'Bank Central Asia (BCA)',
+  bankAccountNumber: '5420193821',
+  emergencyContactName: 'Anita Sari (Istri)',
+  emergencyContactPhone: '081377889900',
+  familyMemberCount: 3,
+  otherLoansCount: 1,
+  otherLoansTotalAmount: 1500000,
+  otherLoansDetails: 'Koperasi Simpan Pinjam Sejahtera'
+};
+
+const defaultWitness: WitnessData = {
+  fullName: 'Siti Rahmawati',
+  nik: '3174055502940002',
+  relationship: 'Rekan Kerja / Penjamin',
+  phoneNumber: '081299887766',
+  address: 'Jl. Kemang Raya No. 88, Jakarta Selatan'
+};
+
+const defaultLocation: LocationTagData = {
+  latitude: -6.1895,
+  longitude: 106.7725,
+  accuracy: 9.4,
+  address: 'Jl. Melati Indah No. 12, Kel. Kebon Jeruk, Kota Jakarta Barat, DKI Jakarta',
+  timestamp: new Date().toISOString(),
+  source: 'GPS_AUTO'
+};
+
+const defaultCollateral: CollateralData = {
+  type: 'BPKB_MOTOR',
+  title: 'BPKB Honda Vario 160 CBS (2022)',
+  ownerName: 'Rian Pratama',
+  documentNumber: 'M-08291482-B / Plat: B 4819 SKW',
+  description: 'Warna Hitam Doff, Tahun 2022, Pajak Hidup, Bodi & Mesin Orisinil Terawat.',
+  estimatedValue: 18000000,
+  collateralDocUrl: sampleBpkbMotorSvg,
+  collateralPhotoUrl: sampleFisikMotorSvg
+};
+
+interface LoanFormDraft {
+  currentStep?: number;
+  applicant?: ApplicantData;
+  witness?: WitnessData;
+  locationTag?: LocationTagData;
+  loanAmount?: number;
+  tenorWeeks?: number;
+  loanPurpose?: string;
+  collateralType?: CollateralType;
+  collateralData?: CollateralData;
+  collateralDocPhoto?: string;
+  collateralPhysPhoto?: string;
+  ktpPhoto?: string;
+  kkPhoto?: string;
+  selfiePhoto?: string;
+  witnessKtpPhoto?: string;
+  witnessSelfiePhoto?: string;
+  signatureData?: string;
+  witnessSignatureData?: string;
+  biometricVerified?: boolean;
+  biometricCredentialId?: string;
+}
+
+const getSavedDraft = (): LoanFormDraft | null => {
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (err) {
+    console.warn('Gagal membaca draf dari penyimpanan lokal:', err);
+  }
+  return null;
+};
+
 interface MobileLoanFlowProps {
   onSubmitApplication: (newApp: LoanApplication) => void;
   onSwitchToAdmin: () => void;
+  isFullWidth?: boolean;
+  userRole?: UserRole;
 }
 
 export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
   onSubmitApplication,
-  onSwitchToAdmin
+  onSwitchToAdmin,
+  isFullWidth = false,
+  userRole = 'KOLEKTOR'
 }) => {
+  const initialDraft = getSavedDraft();
+
   // Step state (1: Data & Simulasi, 2: Dokumen KTP & KK, 3: Selfie Liveness, 4: Biometrik & Signature, 5: Konfirmasi / Selesai)
-  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [currentStep, setCurrentStep] = useState<number>(() => {
+    return initialDraft?.currentStep && initialDraft.currentStep <= 4 ? initialDraft.currentStep : 1;
+  });
 
   // Form State Nasabah
-  const [applicant, setApplicant] = useState<ApplicantData>({
-    fullName: 'Rian Pratama',
-    nik: '3171021405950001',
-    kkNumber: '3171022008160003',
-    birthPlace: 'Jakarta',
-    birthDate: '1995-05-14',
-    gender: 'Laki-laki',
-    address: 'Jl. Melati Indah No. 12, Kel. Kebon Jeruk, Jakarta Barat',
-    phoneNumber: '081288997711',
-    email: 'rian.pratama@gmail.com',
-    job: 'Karyawan Swasta',
-    monthlyIncome: 9500000,
-    bankName: 'Bank Central Asia (BCA)',
-    bankAccountNumber: '5420193821',
-    emergencyContactName: 'Anita Sari (Istri)',
-    emergencyContactPhone: '081377889900',
-    familyMemberCount: 3,
-    otherLoansCount: 1,
-    otherLoansTotalAmount: 1500000,
-    otherLoansDetails: 'Koperasi Simpan Pinjam Sejahtera'
+  const [applicant, setApplicant] = useState<ApplicantData>(() => {
+    return initialDraft?.applicant ? { ...defaultApplicant, ...initialDraft.applicant } : defaultApplicant;
   });
 
   // State Tagging Lokasi GPS Real-Time
-  const [locationTag, setLocationTag] = useState<LocationTagData>({
-    latitude: -6.1895,
-    longitude: 106.7725,
-    accuracy: 9.4,
-    address: 'Jl. Melati Indah No. 12, Kel. Kebon Jeruk, Kota Jakarta Barat, DKI Jakarta',
-    timestamp: new Date().toISOString(),
-    source: 'GPS_AUTO'
+  const [locationTag, setLocationTag] = useState<LocationTagData>(() => {
+    return initialDraft?.locationTag ? { ...defaultLocation, ...initialDraft.locationTag } : defaultLocation;
   });
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [locationFeedback, setLocationFeedback] = useState<string>('GPS Aktif • Terverifikasi Akurasi ±9.4m');
@@ -173,52 +246,197 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
   };
 
   // Form State Saksi (Nama, NIK, Hubungan, No HP, Alamat)
-  const [witness, setWitness] = useState<WitnessData>({
-    fullName: 'Siti Rahmawati',
-    nik: '3174055502940002',
-    relationship: 'Rekan Kerja / Penjamin',
-    phoneNumber: '081299887766',
-    address: 'Jl. Kemang Raya No. 88, Jakarta Selatan'
+  const [witness, setWitness] = useState<WitnessData>(() => {
+    return initialDraft?.witness ? { ...defaultWitness, ...initialDraft.witness } : defaultWitness;
   });
 
   // Loan terms state (Plafon Rp 500.000 s/d Rp 10.000.000, Tenor 4, 6, 8, 10, 12 minggu)
-  const [loanAmount, setLoanAmount] = useState<number>(3000000);
-  const [tenorWeeks, setTenorWeeks] = useState<number>(6);
-  const [loanPurpose, setLoanPurpose] = useState<string>('Modal Usaha & Tambahan Logistik');
+  const [loanAmount, setLoanAmount] = useState<number>(() => {
+    return initialDraft?.loanAmount ?? 3000000;
+  });
+  const [tenorWeeks, setTenorWeeks] = useState<number>(() => {
+    return initialDraft?.tenorWeeks ?? 6;
+  });
+  const [loanPurpose, setLoanPurpose] = useState<string>(() => {
+    return initialDraft?.loanPurpose ?? 'Modal Usaha & Tambahan Logistik';
+  });
 
   // Collateral State (Sertifikat Tanah, BPKB Motor, BPKB Mobil, Barang Lainnya, Tanpa Agunan)
-  const [collateralType, setCollateralType] = useState<CollateralType>('BPKB_MOTOR');
-  const [collateralData, setCollateralData] = useState<CollateralData>({
-    type: 'BPKB_MOTOR',
-    title: 'BPKB Honda Vario 160 CBS (2022)',
-    ownerName: 'Rian Pratama',
-    documentNumber: 'M-08291482-B / Plat: B 4819 SKW',
-    description: 'Warna Hitam Doff, Tahun 2022, Pajak Hidup, Bodi & Mesin Orisinil Terawat.',
-    estimatedValue: 18000000,
-    collateralDocUrl: sampleBpkbMotorSvg,
-    collateralPhotoUrl: sampleFisikMotorSvg
+  const [collateralType, setCollateralType] = useState<CollateralType>(() => {
+    return initialDraft?.collateralType ?? 'BPKB_MOTOR';
   });
-  const [collateralDocPhoto, setCollateralDocPhoto] = useState<string>(sampleBpkbMotorSvg);
-  const [collateralPhysPhoto, setCollateralPhysPhoto] = useState<string>(sampleFisikMotorSvg);
+  const [collateralData, setCollateralData] = useState<CollateralData>(() => {
+    return initialDraft?.collateralData ? { ...defaultCollateral, ...initialDraft.collateralData } : defaultCollateral;
+  });
+  const [collateralDocPhoto, setCollateralDocPhoto] = useState<string>(() => {
+    return initialDraft?.collateralDocPhoto ?? sampleBpkbMotorSvg;
+  });
+  const [collateralPhysPhoto, setCollateralPhysPhoto] = useState<string>(() => {
+    return initialDraft?.collateralPhysPhoto ?? sampleFisikMotorSvg;
+  });
 
   // Document photo states (Nasabah & Saksi)
-  const [ktpPhoto, setKtpPhoto] = useState<string>(sampleKtpSvg);
-  const [kkPhoto, setKkPhoto] = useState<string>(sampleKkSvg);
-  const [selfiePhoto, setSelfiePhoto] = useState<string>(sampleSelfieSvg);
-  const [witnessKtpPhoto, setWitnessKtpPhoto] = useState<string>(sampleWitnessKtpSvg);
-  const [witnessSelfiePhoto, setWitnessSelfiePhoto] = useState<string>(sampleWitnessSelfieSvg);
-  const [signatureData, setSignatureData] = useState<string>('');
-  const [witnessSignatureData, setWitnessSignatureData] = useState<string>(sampleWitnessSignatureSvg);
+  const [ktpPhoto, setKtpPhoto] = useState<string>(() => {
+    return initialDraft?.ktpPhoto ?? sampleKtpSvg;
+  });
+  const [kkPhoto, setKkPhoto] = useState<string>(() => {
+    return initialDraft?.kkPhoto ?? sampleKkSvg;
+  });
+  const [selfiePhoto, setSelfiePhoto] = useState<string>(() => {
+    return initialDraft?.selfiePhoto ?? sampleSelfieSvg;
+  });
+  const [witnessKtpPhoto, setWitnessKtpPhoto] = useState<string>(() => {
+    return initialDraft?.witnessKtpPhoto ?? sampleWitnessKtpSvg;
+  });
+  const [witnessSelfiePhoto, setWitnessSelfiePhoto] = useState<string>(() => {
+    return initialDraft?.witnessSelfiePhoto ?? sampleWitnessSelfieSvg;
+  });
+  const [signatureData, setSignatureData] = useState<string>(() => {
+    return initialDraft?.signatureData ?? '';
+  });
+  const [witnessSignatureData, setWitnessSignatureData] = useState<string>(() => {
+    return initialDraft?.witnessSignatureData ?? sampleWitnessSignatureSvg;
+  });
 
   // Biometric verification state
   const [isVerifyingBio, setIsVerifyingBio] = useState(false);
-  const [biometricVerified, setBiometricVerified] = useState(false);
-  const [biometricCredentialId, setBiometricCredentialId] = useState<string>('');
+  const [biometricVerified, setBiometricVerified] = useState<boolean>(() => {
+    return initialDraft?.biometricVerified ?? false;
+  });
+  const [biometricCredentialId, setBiometricCredentialId] = useState<string>(() => {
+    return initialDraft?.biometricCredentialId ?? '';
+  });
   const [biometricFeedback, setBiometricFeedback] = useState<string>('');
+
+  // Auto-save form draft to localStorage whenever user changes input
+  useEffect(() => {
+    if (currentStep === 5) return;
+    try {
+      const draft: LoanFormDraft = {
+        currentStep,
+        applicant,
+        witness,
+        locationTag,
+        loanAmount,
+        tenorWeeks,
+        loanPurpose,
+        collateralType,
+        collateralData,
+        collateralDocPhoto,
+        collateralPhysPhoto,
+        ktpPhoto,
+        kkPhoto,
+        selfiePhoto,
+        witnessKtpPhoto,
+        witnessSelfiePhoto,
+        signatureData,
+        witnessSignatureData,
+        biometricVerified,
+        biometricCredentialId
+      };
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    } catch (e) {
+      console.warn('Gagal menyimpan draf pengajuan ke localStorage:', e);
+    }
+  }, [
+    currentStep,
+    applicant,
+    witness,
+    locationTag,
+    loanAmount,
+    tenorWeeks,
+    loanPurpose,
+    collateralType,
+    collateralData,
+    collateralDocPhoto,
+    collateralPhysPhoto,
+    ktpPhoto,
+    kkPhoto,
+    selfiePhoto,
+    witnessKtpPhoto,
+    witnessSelfiePhoto,
+    signatureData,
+    witnessSignatureData,
+    biometricVerified,
+    biometricCredentialId
+  ]);
+
+  // Handle explicit Reset Draft
+  const handleResetDraft = () => {
+    if (window.confirm('Hapus seluruh tulisan & isian draf dan mulai formulir baru dari awal?')) {
+      try {
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+      } catch (err) {
+        console.warn(err);
+      }
+      setApplicant(defaultApplicant);
+      setWitness(defaultWitness);
+      setLocationTag(defaultLocation);
+      setLoanAmount(3000000);
+      setTenorWeeks(6);
+      setLoanPurpose('Modal Usaha & Tambahan Logistik');
+      setCollateralType('BPKB_MOTOR');
+      setCollateralData(defaultCollateral);
+      setCollateralDocPhoto(sampleBpkbMotorSvg);
+      setCollateralPhysPhoto(sampleFisikMotorSvg);
+      setKtpPhoto(sampleKtpSvg);
+      setKkPhoto(sampleKkSvg);
+      setSelfiePhoto(sampleSelfieSvg);
+      setWitnessKtpPhoto(sampleWitnessKtpSvg);
+      setWitnessSelfiePhoto(sampleWitnessSelfieSvg);
+      setSignatureData('');
+      setBiometricVerified(false);
+      setBiometricCredentialId('');
+      setCurrentStep(1);
+    }
+  };
 
   // Camera modal state
   const [cameraModalOpen, setCameraModalOpen] = useState(false);
   const [activeDocType, setActiveDocType] = useState<DocumentType>('ktp');
+
+  // Direct Gallery / File Upload Refs
+  const ktpGalleryInputRef = React.useRef<HTMLInputElement | null>(null);
+  const kkGalleryInputRef = React.useRef<HTMLInputElement | null>(null);
+  const witnessKtpGalleryInputRef = React.useRef<HTMLInputElement | null>(null);
+  const selfieGalleryInputRef = React.useRef<HTMLInputElement | null>(null);
+  const witnessSelfieGalleryInputRef = React.useRef<HTMLInputElement | null>(null);
+  const collateralDocGalleryInputRef = React.useRef<HTMLInputElement | null>(null);
+  const collateralPhysGalleryInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleDirectGalleryUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    targetDoc: DocumentType
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        if (targetDoc === 'ktp') {
+          setKtpPhoto(result);
+        } else if (targetDoc === 'kk') {
+          setKkPhoto(result);
+        } else if (targetDoc === 'witness_ktp') {
+          setWitnessKtpPhoto(result);
+        } else if (targetDoc === 'selfie') {
+          setSelfiePhoto(result);
+          setBiometricVerified(true);
+        } else if (targetDoc === 'witness_selfie') {
+          setWitnessSelfiePhoto(result);
+        } else if (targetDoc === 'collateral_doc') {
+          setCollateralDocPhoto(result);
+        } else if (targetDoc === 'collateral_photo') {
+          setCollateralPhysPhoto(result);
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+    // Reset file input so user can re-select if needed
+    e.target.value = '';
+  };
 
   // Preview contract modal
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
@@ -395,20 +613,20 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
       collateral: collateralType !== 'NONE' ? {
         ...collateralData,
         type: collateralType,
-        collateralDocUrl: collateralDocPhoto,
-        collateralPhotoUrl: collateralPhysPhoto
+        collateralDocUrl: collateralDocPhoto || '',
+        collateralPhotoUrl: collateralPhysPhoto || ''
       } : undefined,
       locationTag,
       documents: {
-        ktpUrl: ktpPhoto,
-        kkUrl: kkPhoto,
-        selfieUrl: selfiePhoto,
-        signatureUrl: signatureData,
-        witnessKtpUrl: witnessKtpPhoto,
-        witnessSelfieUrl: witnessSelfiePhoto,
-        witnessSignatureUrl: witnessSignatureData,
-        collateralDocUrl: collateralType !== 'NONE' ? collateralDocPhoto : undefined,
-        collateralPhotoUrl: collateralType !== 'NONE' ? collateralPhysPhoto : undefined
+        ktpUrl: ktpPhoto || '',
+        kkUrl: kkPhoto || '',
+        selfieUrl: selfiePhoto || '',
+        signatureUrl: signatureData || '',
+        witnessKtpUrl: witnessKtpPhoto || '',
+        witnessSelfieUrl: witnessSelfiePhoto || '',
+        witnessSignatureUrl: witnessSignatureData || '',
+        collateralDocUrl: collateralType !== 'NONE' ? (collateralDocPhoto || '') : '',
+        collateralPhotoUrl: collateralType !== 'NONE' ? (collateralPhysPhoto || '') : ''
       },
       biometric: {
         isVerified: biometricVerified,
@@ -433,6 +651,13 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
     onSubmitApplication(newApp);
     setCurrentStep(5);
 
+    // Clear draft so new application starts fresh
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch (e) {
+      console.warn(e);
+    }
+
     // Fire celebratory confetti
     try {
       confetti({
@@ -446,7 +671,25 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
   };
 
   return (
-    <div className="w-full max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col min-h-[720px]">
+    <div className={`w-full ${isFullWidth ? 'max-w-4xl' : 'max-w-md'} mx-auto bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col min-h-[720px] transition-all duration-300`}>
+      {/* Draft Persistence Notice Banner */}
+      <div className="bg-emerald-950/50 border-b border-emerald-500/30 px-3.5 py-1.5 flex items-center justify-between text-[11px] text-emerald-300">
+        <div className="flex items-center gap-1.5 truncate">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+          <span className="font-medium truncate">
+            Draf tersimpan otomatis • Tulisan & data tetap ada saat keluar halaman
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={handleResetDraft}
+          className="ml-2 text-[10px] text-slate-400 hover:text-rose-300 underline shrink-0 transition"
+          title="Hapus draf dan kosongkan isian form"
+        >
+          Reset Form
+        </button>
+      </div>
+
       {/* Top Mobile App Header */}
       <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 border-b border-slate-800 px-4 pt-4 pb-3">
         <div className="flex items-center justify-between">
@@ -1370,12 +1613,63 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                 Gunakan kamera HP untuk memotret dokumen fisik asli. Sistem kami menyediakan bingkai panduan (overlay guide) untuk memastikan foto tidak terpotong dan tulisan terbaca jelas.
               </p>
 
+              {/* Hidden File Inputs for Direct Gallery Upload */}
+              <input
+                ref={ktpGalleryInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleDirectGalleryUpload(e, 'ktp')}
+                className="hidden"
+              />
+              <input
+                ref={kkGalleryInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleDirectGalleryUpload(e, 'kk')}
+                className="hidden"
+              />
+              <input
+                ref={witnessKtpGalleryInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleDirectGalleryUpload(e, 'witness_ktp')}
+                className="hidden"
+              />
+              <input
+                ref={selfieGalleryInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleDirectGalleryUpload(e, 'selfie')}
+                className="hidden"
+              />
+              <input
+                ref={witnessSelfieGalleryInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleDirectGalleryUpload(e, 'witness_selfie')}
+                className="hidden"
+              />
+              <input
+                ref={collateralDocGalleryInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleDirectGalleryUpload(e, 'collateral_doc')}
+                className="hidden"
+              />
+              <input
+                ref={collateralPhysGalleryInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleDirectGalleryUpload(e, 'collateral_photo')}
+                className="hidden"
+              />
+
               {/* KTP Capture Card */}
               <div className="border border-slate-700 rounded-xl p-3 bg-slate-900/60 mb-3">
                 <div className="flex justify-between items-center mb-2">
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-blue-500" />
-                    <span className="text-xs font-bold text-white">1. Foto e-KTP Asli</span>
+                    <span className="text-xs font-bold text-white">1. Foto e-KTP Nasabah</span>
                   </div>
                   {ktpPhoto ? (
                     <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
@@ -1387,28 +1681,52 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                 </div>
 
                 {ktpPhoto ? (
-                  <div className="relative rounded-lg overflow-hidden border border-slate-700 mb-2">
-                    <img src={ktpPhoto} alt="KTP Preview" className="w-full h-36 object-contain bg-black/40" />
+                  <div className="space-y-2">
+                    <div className="relative rounded-lg overflow-hidden border border-slate-700">
+                      <img src={ktpPhoto} alt="KTP Preview" className="w-full h-36 object-contain bg-black/40" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDocCamera('ktp')}
+                        className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 transition shadow-sm"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 text-blue-400" />
+                        Kamera KTP
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => ktpGalleryInputRef.current?.click()}
+                        className="w-full bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 text-[11px] font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 transition shadow-sm"
+                      >
+                        <ImageIcon className="w-3.5 h-3.5 text-blue-400" />
+                        Ganti dari Galeri HP
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
                     <button
                       type="button"
                       onClick={() => handleOpenDocCamera('ktp')}
-                      className="absolute bottom-2 right-2 bg-slate-900/90 text-slate-200 border border-slate-700 text-[10px] font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md hover:bg-slate-800"
+                      className="w-full py-6 border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-blue-400 transition"
                     >
-                      <RefreshCw className="w-3 h-3" /> Foto Ulang
+                      <div className="w-10 h-10 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center">
+                        <Camera className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-semibold text-white">Buka Kamera e-KTP (Dengan Bingkai Panduan)</span>
+                      <span className="text-[10px] text-slate-400">Posisikan KTP pas di kotak panduan</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => ktpGalleryInputRef.current?.click()}
+                      className="w-full py-2.5 px-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 text-xs font-semibold flex items-center justify-center gap-2 transition"
+                    >
+                      <ImageIcon className="w-4 h-4 text-blue-400" />
+                      <span>Ambil Foto e-KTP Nasabah dari Galeri HP</span>
                     </button>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenDocCamera('ktp')}
-                    className="w-full py-8 border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-blue-400 transition"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center">
-                      <Camera className="w-5 h-5" />
-                    </div>
-                    <span className="text-xs font-semibold">Buka Kamera KTP (Dengan Overlay)</span>
-                    <span className="text-[10px] text-slate-400">Posisikan KTP pas di kotak panduan</span>
-                  </button>
                 )}
               </div>
 
@@ -1429,28 +1747,52 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                 </div>
 
                 {kkPhoto ? (
-                  <div className="relative rounded-lg overflow-hidden border border-slate-700 mb-2">
-                    <img src={kkPhoto} alt="KK Preview" className="w-full h-36 object-contain bg-black/40" />
+                  <div className="space-y-2">
+                    <div className="relative rounded-lg overflow-hidden border border-slate-700">
+                      <img src={kkPhoto} alt="KK Preview" className="w-full h-36 object-contain bg-black/40" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDocCamera('kk')}
+                        className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 transition shadow-sm"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 text-sky-400" />
+                        Kamera KK
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => kkGalleryInputRef.current?.click()}
+                        className="w-full bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/40 text-[11px] font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 transition shadow-sm"
+                      >
+                        <ImageIcon className="w-3.5 h-3.5 text-sky-400" />
+                        Ganti dari Galeri HP
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
                     <button
                       type="button"
                       onClick={() => handleOpenDocCamera('kk')}
-                      className="absolute bottom-2 right-2 bg-slate-900/90 text-slate-200 border border-slate-700 text-[10px] font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md hover:bg-slate-800"
+                      className="w-full py-6 border-2 border-dashed border-slate-700 hover:border-sky-500 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-sky-400 transition"
                     >
-                      <RefreshCw className="w-3 h-3" /> Foto Ulang
+                      <div className="w-10 h-10 rounded-full bg-sky-600/20 text-sky-400 flex items-center justify-center">
+                        <Camera className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-semibold text-white">Buka Kamera KK (Dengan Bingkai Panduan)</span>
+                      <span className="text-[10px] text-slate-400">Tampilkan seluruh lembar KK utuh</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => kkGalleryInputRef.current?.click()}
+                      className="w-full py-2.5 px-3 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-300 text-xs font-semibold flex items-center justify-center gap-2 transition"
+                    >
+                      <ImageIcon className="w-4 h-4 text-sky-400" />
+                      <span>Ambil Foto KK dari Galeri HP</span>
                     </button>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenDocCamera('kk')}
-                    className="w-full py-8 border-2 border-dashed border-slate-700 hover:border-sky-500 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-sky-400 transition"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-sky-600/20 text-sky-400 flex items-center justify-center">
-                      <Camera className="w-5 h-5" />
-                    </div>
-                    <span className="text-xs font-semibold">Buka Kamera KK (Dengan Overlay)</span>
-                    <span className="text-[10px] text-slate-400">Tampilkan seluruh lembar KK utuh</span>
-                  </button>
                 )}
               </div>
 
@@ -1473,28 +1815,52 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                 </div>
 
                 {witnessKtpPhoto ? (
-                  <div className="relative rounded-lg overflow-hidden border border-teal-600/40 mb-2">
-                    <img src={witnessKtpPhoto} alt="KTP Saksi Preview" className="w-full h-36 object-contain bg-black/40" />
+                  <div className="space-y-2">
+                    <div className="relative rounded-lg overflow-hidden border border-teal-600/40">
+                      <img src={witnessKtpPhoto} alt="KTP Saksi Preview" className="w-full h-36 object-contain bg-black/40" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDocCamera('witness_ktp')}
+                        className="w-full bg-slate-900/90 hover:bg-slate-800 text-teal-300 border border-teal-600/50 text-[11px] font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        Kamera KTP Saksi
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => witnessKtpGalleryInputRef.current?.click()}
+                        className="w-full bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 text-[11px] font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition"
+                      >
+                        <ImageIcon className="w-3.5 h-3.5 text-teal-400" />
+                        Ganti dari Galeri HP
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
                     <button
                       type="button"
                       onClick={() => handleOpenDocCamera('witness_ktp')}
-                      className="absolute bottom-2 right-2 bg-slate-900/90 text-teal-300 border border-teal-600/50 text-[10px] font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md hover:bg-slate-800"
+                      className="w-full py-6 border-2 border-dashed border-teal-700/60 hover:border-teal-400 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-2 text-teal-300/70 hover:text-teal-300 transition"
                     >
-                      <RefreshCw className="w-3 h-3" /> Foto Ulang KTP Saksi
+                      <div className="w-10 h-10 rounded-full bg-teal-600/20 text-teal-400 flex items-center justify-center">
+                        <Camera className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-semibold text-white">Buka Kamera e-KTP Saksi (Dengan Bingkai Panduan)</span>
+                      <span className="text-[10px] text-slate-400">Foto e-KTP asli milik saksi {witness.fullName}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => witnessKtpGalleryInputRef.current?.click()}
+                      className="w-full py-2.5 px-3 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 text-teal-300 text-xs font-semibold flex items-center justify-center gap-2 transition"
+                    >
+                      <ImageIcon className="w-4 h-4 text-teal-400" />
+                      <span>Ambil Foto e-KTP Saksi dari Galeri HP</span>
                     </button>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenDocCamera('witness_ktp')}
-                    className="w-full py-8 border-2 border-dashed border-teal-700/60 hover:border-teal-400 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-2 text-teal-300/70 hover:text-teal-300 transition"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-teal-600/20 text-teal-400 flex items-center justify-center">
-                      <Camera className="w-5 h-5" />
-                    </div>
-                    <span className="text-xs font-semibold">Buka Kamera e-KTP Saksi (Dengan Overlay)</span>
-                    <span className="text-[10px] text-slate-400">Foto e-KTP asli milik saksi {witness.fullName}</span>
-                  </button>
                 )}
               </div>
 
@@ -1525,30 +1891,52 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                     </div>
 
                     {collateralDocPhoto ? (
-                      <div className="relative rounded-lg overflow-hidden border border-slate-700 mb-2">
-                        <img src={collateralDocPhoto} alt="Dokumen Jaminan" className="w-full h-36 object-contain bg-black/40" />
-                        <div className="absolute bottom-2 right-2 flex gap-1.5">
+                      <div className="space-y-2">
+                        <div className="relative rounded-lg overflow-hidden border border-slate-700">
+                          <img src={collateralDocPhoto} alt="Dokumen Jaminan" className="w-full h-36 object-contain bg-black/40" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
                           <button
                             type="button"
                             onClick={() => handleOpenDocCamera('collateral_doc')}
-                            className="bg-slate-900/90 text-amber-300 border border-amber-600/50 text-[10px] font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md hover:bg-slate-800"
+                            className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 transition shadow-sm"
                           >
-                            <RefreshCw className="w-3 h-3" /> Foto Ulang
+                            <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                            Kamera Dokumen
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => collateralDocGalleryInputRef.current?.click()}
+                            className="w-full bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-[11px] font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 transition shadow-sm"
+                          >
+                            <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+                            Ganti dari Galeri HP
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDocCamera('collateral_doc')}
-                        className="w-full py-8 border-2 border-dashed border-amber-700/60 hover:border-amber-400 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-2 text-amber-300/70 hover:text-amber-300 transition"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-amber-600/20 text-amber-400 flex items-center justify-center">
-                          <FileCheck2 className="w-5 h-5" />
-                        </div>
-                        <span className="text-xs font-semibold">Buka Kamera Dokumen Agunan (Dengan Overlay)</span>
-                        <span className="text-[10px] text-slate-400">Foto lembar BPKB / Sertifikat Tanah asli</span>
-                      </button>
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDocCamera('collateral_doc')}
+                          className="w-full py-6 border-2 border-dashed border-amber-700/60 hover:border-amber-400 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-2 text-amber-300/70 hover:text-amber-300 transition"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-amber-600/20 text-amber-400 flex items-center justify-center">
+                            <FileCheck2 className="w-5 h-5" />
+                          </div>
+                          <span className="text-xs font-semibold text-white">Buka Kamera Dokumen Agunan (Dengan Bingkai Panduan)</span>
+                          <span className="text-[10px] text-slate-400">Foto lembar BPKB / Sertifikat Tanah asli</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => collateralDocGalleryInputRef.current?.click()}
+                          className="w-full py-2.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-semibold flex items-center justify-center gap-2 transition"
+                        >
+                          <ImageIcon className="w-4 h-4 text-amber-400" />
+                          <span>Ambil Foto Dokumen Agunan dari Galeri HP</span>
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -1569,30 +1957,52 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                     </div>
 
                     {collateralPhysPhoto ? (
-                      <div className="relative rounded-lg overflow-hidden border border-slate-700 mb-2">
-                        <img src={collateralPhysPhoto} alt="Fisik Jaminan" className="w-full h-36 object-contain bg-black/40" />
-                        <div className="absolute bottom-2 right-2 flex gap-1.5">
+                      <div className="space-y-2">
+                        <div className="relative rounded-lg overflow-hidden border border-slate-700">
+                          <img src={collateralPhysPhoto} alt="Fisik Jaminan" className="w-full h-36 object-contain bg-black/40" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
                           <button
                             type="button"
                             onClick={() => handleOpenDocCamera('collateral_photo')}
-                            className="bg-slate-900/90 text-emerald-300 border border-emerald-600/50 text-[10px] font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-md hover:bg-slate-800"
+                            className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 transition shadow-sm"
                           >
-                            <RefreshCw className="w-3 h-3" /> Foto Ulang Fisik
+                            <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+                            Kamera Fisik
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => collateralPhysGalleryInputRef.current?.click()}
+                            className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 transition shadow-sm"
+                          >
+                            <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
+                            Ganti dari Galeri HP
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDocCamera('collateral_photo')}
-                        className="w-full py-8 border-2 border-dashed border-emerald-700/60 hover:border-emerald-400 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-2 text-emerald-300/70 hover:text-emerald-300 transition"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-emerald-600/20 text-emerald-400 flex items-center justify-center">
-                          <Camera className="w-5 h-5" />
-                        </div>
-                        <span className="text-xs font-semibold">Buka Kamera Fisik Jaminan (Dengan Overlay)</span>
-                        <span className="text-[10px] text-slate-400">Foto fisik kendaraan + plat / lokasi tanah / barang</span>
-                      </button>
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDocCamera('collateral_photo')}
+                          className="w-full py-6 border-2 border-dashed border-emerald-700/60 hover:border-emerald-400 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-2 text-emerald-300/70 hover:text-emerald-300 transition"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-emerald-600/20 text-emerald-400 flex items-center justify-center">
+                            <Camera className="w-5 h-5" />
+                          </div>
+                          <span className="text-xs font-semibold text-white">Buka Kamera Fisik Jaminan (Dengan Bingkai Panduan)</span>
+                          <span className="text-[10px] text-slate-400">Foto fisik kendaraan + plat / lokasi tanah / barang</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => collateralPhysGalleryInputRef.current?.click()}
+                          className="w-full py-2.5 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center justify-center gap-2 transition"
+                        >
+                          <ImageIcon className="w-4 h-4 text-emerald-400" />
+                          <span>Ambil Foto Fisik Objek Jaminan dari Galeri HP</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 </>
@@ -1661,29 +2071,45 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                             Nasabah Liveness
                           </div>
                         </div>
+                        <div className="grid grid-cols-2 gap-1.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDocCamera('selfie')}
+                            className="w-full py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-medium hover:bg-slate-700 flex items-center justify-center gap-1"
+                          >
+                            <RefreshCw className="w-3 h-3 text-emerald-400" /> Ulang Kamera
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => selfieGalleryInputRef.current?.click()}
+                            className="w-full py-1.5 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-medium hover:bg-emerald-600/30 flex items-center justify-center gap-1"
+                          >
+                            <ImageIcon className="w-3 h-3 text-emerald-400" /> Galeri HP
+                          </button>
+                        </div>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDocCamera('selfie')}
-                        className="w-full py-6 border-2 border-dashed border-slate-700 hover:border-emerald-500 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-1.5 text-slate-400 hover:text-emerald-400 transition"
-                      >
-                        <Smile className="w-6 h-6 text-emerald-400" />
-                        <span className="text-[11px] font-bold text-white">Selfie Nasabah</span>
-                        <span className="text-[9px] text-slate-400">Pindai Wajah Peminjam</span>
-                      </button>
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDocCamera('selfie')}
+                          className="w-full py-6 border-2 border-dashed border-slate-700 hover:border-emerald-500 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-1.5 text-slate-400 hover:text-emerald-400 transition"
+                        >
+                          <Smile className="w-6 h-6 text-emerald-400" />
+                          <span className="text-[11px] font-bold text-white">Kamera Wajah Nasabah</span>
+                          <span className="text-[9px] text-slate-400">Pindai Wajah Peminjam</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => selfieGalleryInputRef.current?.click()}
+                          className="w-full py-2 px-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition"
+                        >
+                          <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Ambil Wajah dari Galeri HP</span>
+                        </button>
+                      </div>
                     )}
                   </div>
-
-                  {selfiePhoto && (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenDocCamera('selfie')}
-                      className="mt-2 w-full py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-medium hover:bg-slate-700 flex items-center justify-center gap-1"
-                    >
-                      <RefreshCw className="w-3 h-3" /> Foto Ulang Nasabah
-                    </button>
-                  )}
                 </div>
 
                 {/* Selfie Saksi */}
@@ -1709,29 +2135,45 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                             Saksi Liveness
                           </div>
                         </div>
+                        <div className="grid grid-cols-2 gap-1.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDocCamera('witness_selfie')}
+                            className="w-full py-1.5 rounded-lg bg-slate-800 border border-teal-700/60 text-teal-300 text-[10px] font-medium hover:bg-slate-700 flex items-center justify-center gap-1"
+                          >
+                            <RefreshCw className="w-3 h-3 text-teal-400" /> Ulang Kamera
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => witnessSelfieGalleryInputRef.current?.click()}
+                            className="w-full py-1.5 rounded-lg bg-teal-600/20 border border-teal-500/40 text-teal-300 text-[10px] font-medium hover:bg-teal-600/30 flex items-center justify-center gap-1"
+                          >
+                            <ImageIcon className="w-3 h-3 text-teal-400" /> Galeri HP
+                          </button>
+                        </div>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDocCamera('witness_selfie')}
-                        className="w-full py-6 border-2 border-dashed border-teal-700/60 hover:border-teal-400 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-1.5 text-teal-300/70 hover:text-teal-300 transition"
-                      >
-                        <UserCheck className="w-6 h-6 text-teal-400" />
-                        <span className="text-[11px] font-bold text-white">Selfie Saksi</span>
-                        <span className="text-[9px] text-slate-400">Pindai Wajah Saksi</span>
-                      </button>
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDocCamera('witness_selfie')}
+                          className="w-full py-6 border-2 border-dashed border-teal-700/60 hover:border-teal-400 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-1.5 text-teal-300/70 hover:text-teal-300 transition"
+                        >
+                          <UserCheck className="w-6 h-6 text-teal-400" />
+                          <span className="text-[11px] font-bold text-white">Kamera Wajah Saksi</span>
+                          <span className="text-[9px] text-slate-400">Pindai Wajah Saksi</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => witnessSelfieGalleryInputRef.current?.click()}
+                          className="w-full py-2 px-2.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 text-teal-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition"
+                        >
+                          <ImageIcon className="w-3.5 h-3.5 text-teal-400" />
+                          <span>Ambil Wajah dari Galeri HP</span>
+                        </button>
+                      </div>
                     )}
                   </div>
-
-                  {witnessSelfiePhoto && (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenDocCamera('witness_selfie')}
-                      className="mt-2 w-full py-1.5 rounded-lg bg-slate-800 border border-teal-700/60 text-teal-300 text-[10px] font-medium hover:bg-slate-700 flex items-center justify-center gap-1"
-                    >
-                      <RefreshCw className="w-3 h-3" /> Foto Ulang Saksi
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -2021,14 +2463,21 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                 Unduh Dokumen PDF Resmi
               </button>
 
-              <button
-                type="button"
-                onClick={onSwitchToAdmin}
-                className="w-full py-3 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition"
-              >
-                <FileText className="w-4 h-4" />
-                Buka Dashboard Admin (Periksa Berkas Ini) &rarr;
-              </button>
+              {userRole === 'ANALYST' ? (
+                <button
+                  type="button"
+                  onClick={onSwitchToAdmin}
+                  className="w-full py-3 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition"
+                >
+                  <FileText className="w-4 h-4" />
+                  Buka Dashboard Admin (Periksa Berkas Ini) &rarr;
+                </button>
+              ) : (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Berkas telah otomatis diteruskan ke antrean Credit Analyst untuk diverifikasi.</span>
+                </div>
+              )}
 
               <button
                 type="button"
@@ -2037,9 +2486,9 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                   setSignatureData('');
                   setBiometricVerified(false);
                 }}
-                className="w-full py-2.5 text-slate-400 hover:text-white text-xs font-semibold"
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-2xl transition"
               >
-                Buat Pengajuan Baru
+                + Input Pengajuan Nasabah Baru Lagi
               </button>
             </div>
           </div>

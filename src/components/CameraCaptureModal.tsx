@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Camera, RefreshCw, Check, X, SwitchCamera, Upload, AlertCircle, Sparkles } from 'lucide-react';
+import { Camera, RefreshCw, Check, X, SwitchCamera, Upload, AlertCircle, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { DocumentType } from '../types';
 
 interface CameraCaptureModalProps {
@@ -378,10 +378,11 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
             <>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
-                title="Pilih foto dari penyimpanan file"
+                className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5 text-xs font-semibold"
+                title="Pilih foto dari galeri HP"
               >
-                <Upload className="w-4 h-4" />
+                <ImageIcon className="w-4 h-4 text-blue-400" />
+                <span>Galeri HP</span>
               </button>
 
               {/* Big Shutter Button */}
@@ -397,10 +398,11 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
               <button
                 onClick={handleSwitchCamera}
                 disabled={!!cameraError}
-                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 disabled:opacity-40 transition"
+                className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 disabled:opacity-40 transition flex items-center gap-1.5 text-xs font-semibold"
                 title="Ganti kamera depan / belakang"
               >
                 <SwitchCamera className="w-4 h-4" />
+                <span className="hidden sm:inline">Putar</span>
               </button>
             </>
           )}

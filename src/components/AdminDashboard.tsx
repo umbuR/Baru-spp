@@ -21,7 +21,9 @@ import {
   MapPin,
   Sliders,
   Calculator,
-  Edit3
+  Edit3,
+  History,
+  FileWarning
 } from 'lucide-react';
 import { LoanApplication, ApplicationStatus, LoanTerms } from '../types';
 import { formatRupiah, formatDateIndo, downloadLoanAgreementPdf } from '../utils/pdfGenerator';
@@ -34,13 +36,17 @@ interface AdminDashboardProps {
   onUpdateLoan?: (id: string, updatedLoan: LoanTerms, newStatus?: ApplicationStatus, notes?: string, verifierName?: string) => void;
   onRefreshData?: () => void;
   onSwitchToMobile?: () => void;
+  onNavigateToSita?: (appId?: string) => void;
+  currentAnalystName?: string;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   applications,
   onUpdateStatus,
   onUpdateLoan,
-  onSwitchToMobile
+  onSwitchToMobile,
+  onNavigateToSita,
+  currentAnalystName
 }) => {
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,7 +60,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [actionModalType, setActionModalType] = useState<'APPROVE' | 'REJECT' | null>(null);
   const [actionTargetApp, setActionTargetApp] = useState<LoanApplication | null>(null);
   const [actionNotes, setActionNotes] = useState('');
-  const [verifierName, setVerifierName] = useState('Verifikator Pusat (Senior Analyst)');
+  const [verifierName, setVerifierName] = useState(currentAnalystName || 'Hendra Wijaya, S.E. (Credit Analyst)');
 
   // Modify loan modal state (Penyesuaian Plafon / Tenor)
   const [modifyLoanApp, setModifyLoanApp] = useState<LoanApplication | null>(null);
@@ -66,6 +72,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Contract viewer modal state
   const [viewContractModalOpen, setViewContractModalOpen] = useState(false);
   const [contractToView, setContractToView] = useState<LoanApplication | null>(null);
+
+  // Status log audit history modal
+  const [historyModalApp, setHistoryModalApp] = useState<LoanApplication | null>(null);
 
   // Metrics
   const totalCount = applications.length;
@@ -374,13 +383,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <th className="py-3.5 px-4">Plafon & Tenor</th>
                 <th className="py-3.5 px-4">Otentikasi Biometrik</th>
                 <th className="py-3.5 px-4">Tanggal Pengajuan</th>
-                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4 min-w-[210px]">Status & Log Verifikator</th>
                 <th className="py-3.5 px-4 text-center">Aksi Verifikasi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 text-slate-300">
               {filteredApplications.length > 0 ? (
-                filteredApplications.map((app) => (
+                filteredApplications.map((app) => {
+                  const latestLog = app.statusLogs && app.statusLogs.length > 0
+                    ? app.statusLogs[app.statusLogs.length - 1]
+                    : null;
+                  const verifier = latestLog?.verifiedBy || app.verifiedBy;
+                  const verifiedDate = latestLog?.timestamp || app.verifiedAt;
+
+                  return (
                   <tr key={app.id} className="hover:bg-slate-800/50 transition">
                     <td className="py-3.5 px-4">
                       <div className="font-mono font-bold text-white">{app.contractNumber}</div>
@@ -454,6 +470,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     </td>
                     <td className="py-3.5 px-4">
+                      {/* Status Badge */}
                       {app.status === 'PENDING' && (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] border border-amber-500/30">
                           <Clock className="w-3 h-3" /> Menunggu Verifikasi
@@ -468,6 +485,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 font-bold text-[10px] border border-rose-500/30">
                           <XCircle className="w-3 h-3" /> Ditolak
                         </span>
+                      )}
+
+                      {/* Catatan Log Sederhana Verifikator */}
+                      {verifier ? (
+                        <div className="mt-1.5 p-2 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] space-y-1">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-[9px] text-slate-400 font-medium flex items-center gap-1">
+                              <UserCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                              Verifikator Terakhir:
+                            </span>
+                            {app.statusLogs && app.statusLogs.length > 1 && (
+                              <button
+                                onClick={() => setHistoryModalApp(app)}
+                                className="text-[9px] text-blue-400 hover:text-blue-300 underline font-semibold flex items-center gap-0.5"
+                                title="Lihat semua riwayat perubahan status"
+                              >
+                                <History className="w-2.5 h-2.5" />
+                                {app.statusLogs.length} Log
+                              </button>
+                            )}
+                          </div>
+                          <div className="font-semibold text-white truncate" title={verifier}>
+                            {verifier}
+                          </div>
+                          {verifiedDate && (
+                            <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5 text-slate-500 shrink-0" />
+                              <span>
+                                {formatDateIndo(verifiedDate)}, {new Date(verifiedDate).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                              </span>
+                            </div>
+                          )}
+                          {latestLog?.notes && (
+                            <div className="text-[9.5px] text-slate-300 italic bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800/80 line-clamp-2" title={latestLog.notes}>
+                              "{latestLog.notes}"
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="mt-1.5 text-[10px] text-slate-500 italic flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-600" />
+                          Belum ada verifikasi
+                        </div>
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-center">
@@ -522,10 +582,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         >
                           <FileText className="w-4 h-4" />
                         </button>
+
+                        {/* Surat Sita Barang */}
+                        {onNavigateToSita && (
+                          <button
+                            onClick={() => onNavigateToSita(app.id)}
+                            className="p-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 transition shadow-sm"
+                            title="Terbitkan Surat Sita / Eksekusi Agunan untuk Nasabah Ini"
+                          >
+                            <FileWarning className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={7} className="text-center py-10 text-slate-500 text-xs">
@@ -1171,6 +1243,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                {onNavigateToSita && (
+                  <button
+                    onClick={() => {
+                      onNavigateToSita(selectedApp.id);
+                      setSelectedApp(null);
+                    }}
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-600/50 text-xs font-bold transition shadow-sm"
+                    title="Buka Menu Surat Sita Agunan untuk Nasabah Ini"
+                  >
+                    <FileWarning className="w-4 h-4" />
+                    Surat Sita
+                  </button>
+                )}
                 <button
                   onClick={() => handleOpenAction('REJECT', selectedApp)}
                   className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition"
@@ -1507,6 +1592,112 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }}
           application={contractToView}
         />
+      )}
+
+      {/* Status Log Audit History Modal */}
+      {historyModalApp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
+          <div className="relative w-full max-w-lg bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden my-auto flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 bg-slate-800/90 border-b border-slate-700">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+                  <History className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-white">
+                    Riwayat Log Status & Verifikator
+                  </h3>
+                  <p className="text-xs text-slate-400 font-mono">
+                    {historyModalApp.contractNumber} • {historyModalApp.applicant.fullName}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setHistoryModalApp(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-700 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 max-h-[60vh] overflow-y-auto space-y-3">
+              {historyModalApp.statusLogs && historyModalApp.statusLogs.length > 0 ? (
+                historyModalApp.statusLogs.slice().reverse().map((log, index) => {
+                  const isLatest = index === 0;
+                  return (
+                    <div
+                      key={log.id || index}
+                      className={`p-3.5 rounded-xl border transition ${
+                        isLatest
+                          ? 'bg-slate-850 border-blue-500/40 shadow-sm'
+                          : 'bg-slate-950/60 border-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <div className="flex items-center gap-2">
+                          {log.status === 'APPROVED' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-500/30">
+                              <CheckCircle className="w-3 h-3" /> Disetujui (ACC)
+                            </span>
+                          )}
+                          {log.status === 'REJECTED' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold text-[10px] border border-rose-500/30">
+                              <XCircle className="w-3 h-3" /> Ditolak
+                            </span>
+                          )}
+                          {log.status === 'PENDING' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[10px] border border-amber-500/30">
+                              <Clock className="w-3 h-3" /> Pending Verifikasi
+                            </span>
+                          )}
+                          {isLatest && (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                              Terbaru
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {formatDateIndo(log.timestamp)}, {new Date(log.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-xs text-slate-200 mt-1">
+                        <UserCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span>Verifikator: <strong className="text-white">{log.verifiedBy}</strong></span>
+                      </div>
+
+                      {log.notes && (
+                        <div className="mt-2 p-2 rounded-lg bg-slate-900/90 border border-slate-800 text-xs text-slate-300 italic">
+                          "{log.notes}"
+                        </div>
+                      )}
+
+                      {log.adjustedAmount && (
+                        <div className="mt-1.5 text-[11px] text-amber-300">
+                          Penyesuaian Plafon: <strong>{formatRupiah(log.adjustedAmount)}</strong>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-6 text-slate-500 text-xs">
+                  Belum ada riwayat catatan log status untuk berkas ini.
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 bg-slate-800/80 border-t border-slate-700 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setHistoryModalApp(null)}
+                className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold transition"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

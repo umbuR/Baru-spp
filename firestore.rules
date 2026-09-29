@@ -12,5 +12,16 @@ service cloud.firestore {
       allow read, create: if true;
       allow update, delete: if false;
     }
+
+    // Pengguna dan otorisasi profil peran (Kolektor & Analyst)
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Uji koneksi kesehatan backend
+    match /test/{docId} {
+      allow read, write: if true;
+    }
   }
 }
