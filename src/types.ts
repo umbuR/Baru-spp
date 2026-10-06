@@ -163,6 +163,7 @@ export interface SuratSitaRecord {
   contractNumber: string; // e.g. "SPP/PINJ/2026/IX/0042"
   applicationId?: string;
   createdAt: string;
+  updatedAt?: string;
   executionDate: string; // Tanggal rencana/eksekusi
   status: SitaStatus;
   

@@ -30,16 +30,20 @@ import {
 } from './types';
 import { INITIAL_APPLICATIONS, INITIAL_SURAT_SITA } from './data/initialData';
 import { 
-  testFirestoreConnection, 
-  subscribeToLoanApplications, 
-  saveApplicationToFirestore, 
-  updateApplicationStatusInFirestore,
-  updateApplicationLoanInFirestore,
-  seedInitialApplicationsIfEmpty 
-} from './lib/firebase';
+  testSupabaseConnection,
+  subscribeToLoanApplicationsSupabase,
+  saveApplicationToSupabase,
+  updateApplicationStatusInSupabase,
+  updateApplicationLoanInSupabase,
+  saveSuratSitaToSupabase,
+  deleteSuratSitaFromSupabase,
+  updateSuratSitaStatusInSupabase,
+  getLocalCachedApplications
+} from './lib/supabase';
 import { MobileLoanFlow } from './components/MobileLoanFlow';
 import { AdminDashboard } from './components/AdminDashboard';
 import { SuratSitaBarangView } from './components/SuratSitaBarangView';
+import { SupabaseSettingsModal } from './components/SupabaseSettingsModal';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { LoginPage } from './components/LoginPage';
@@ -109,19 +113,14 @@ export default function App() {
     }
   };
 
-  // Firestore status
-  const [isFirestoreConnected, setIsFirestoreConnected] = useState<boolean>(false);
+  // Supabase connection & modal state
+  const [isSupabaseConnected, setIsSupabaseConnected] = useState<boolean>(false);
+  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState<boolean>(false);
 
-  // Applications state persisted to localStorage as offline cache + Firestore sync
+  // Applications state persisted to local cache + Supabase sync
   const [applications, setApplications] = useState<LoanApplication[]>(() => {
-    try {
-      const saved = localStorage.getItem('loan_applications_data');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch {
-      // Fallback
-    }
+    const cached = getLocalCachedApplications();
+    if (cached && cached.length > 0) return cached;
     return INITIAL_APPLICATIONS;
   });
 
@@ -154,11 +153,14 @@ export default function App() {
       }
       return [newOrUpdated, ...prev];
     });
+    // Persist to Supabase
+    saveSuratSitaToSupabase(newOrUpdated);
     showToast(`Surat Sita ${newOrUpdated.letterNumber} untuk ${newOrUpdated.debtor.fullName} berhasil disimpan & diterbitkan!`, 'success');
   };
 
   const handleDeleteSuratSita = (id: string) => {
     setSuratSitaList((prev) => prev.filter(item => item.id !== id));
+    deleteSuratSitaFromSupabase(id);
     showToast('Surat Sita berhasil dihapus dari arsip.', 'info');
   };
 
@@ -172,52 +174,39 @@ export default function App() {
       }
       return item;
     }));
+    updateSuratSitaStatusInSupabase(id, newStatus);
     showToast(`Status surat sita berhasil diubah menjadi "${newStatus}".`, 'success');
   };
 
   // Toast notifications
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
-  // Initialize and synchronize with Firebase Firestore
+  // Initialize and synchronize with Supabase PostgreSQL
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
 
-    // Start real-time synchronization from Firestore immediately
+    // Start real-time synchronization from Supabase immediately
     try {
-      unsubscribe = subscribeToLoanApplications(
-        (liveApps) => {
-          if (liveApps && liveApps.length > 0) {
-            setApplications(liveApps);
-            setIsFirestoreConnected(true);
-          }
-        },
-        (err) => {
-          console.info('Firestore subscription active with local offline cache:', err?.message || err);
+      unsubscribe = subscribeToLoanApplicationsSupabase((liveApps) => {
+        if (liveApps && liveApps.length > 0) {
+          setApplications(liveApps);
+          setIsSupabaseConnected(true);
         }
-      );
+      });
     } catch (subErr) {
-      console.warn('Subscription error:', subErr);
+      console.warn('Supabase subscription note:', subErr);
     }
 
-    async function checkAndSeedFirestore() {
+    async function checkSupabase() {
       try {
-        const isOk = await testFirestoreConnection();
-        setIsFirestoreConnected(isOk);
-
-        // Seed initial mock applications if Firestore is completely empty and online
-        if (isOk) {
-          try {
-            await seedInitialApplicationsIfEmpty(INITIAL_APPLICATIONS);
-          } catch (seedErr) {
-            console.warn('Initial seeding skipped:', seedErr);
-          }
-        }
+        const res = await testSupabaseConnection();
+        setIsSupabaseConnected(res.ok);
       } catch (err) {
-        console.warn('Firestore initialization status:', err);
+        console.warn('Supabase initialization status:', err);
       }
     }
 
-    checkAndSeedFirestore();
+    checkSupabase();
 
     return () => {
       if (unsubscribe) unsubscribe();
@@ -266,22 +255,21 @@ export default function App() {
     showToast('Sesi petugas telah ditutup. Silakan masuk kembali.', 'info');
   };
 
-  // Add new application from mobile flow and persist to Firestore
+  // Add new application from mobile flow and persist to Supabase
   const handleAddNewApplication = async (newApp: LoanApplication) => {
     // Instant optimistic update
     setApplications((prev) => [newApp, ...prev]);
-    showToast(`Pengajuan ${newApp.applicant.fullName} (${newApp.contractNumber}) berhasil disimpan ke Database Cloud!`, 'success');
+    showToast(`Pengajuan ${newApp.applicant.fullName} (${newApp.contractNumber}) berhasil disimpan ke Database!`, 'success');
 
-    // Cloud Firestore persistence
+    // Supabase persistence
     try {
-      await saveApplicationToFirestore(newApp);
-      setIsFirestoreConnected(true);
+      await saveApplicationToSupabase(newApp);
     } catch (err) {
-      console.error('Gagal menyimpan ke Firestore, tersimpan di cache lokal:', err);
+      console.error('Gagal menyimpan ke Supabase, tersimpan di cache lokal:', err);
     }
   };
 
-  // Update status from Admin Dashboard and persist to Firestore
+  // Update status from Admin Dashboard and persist to Supabase
   const handleUpdateStatus = async (
     id: string,
     newStatus: ApplicationStatus,
@@ -326,12 +314,11 @@ export default function App() {
       newStatus === 'APPROVED' ? 'success' : 'info'
     );
 
-    // Update in Firestore
+    // Update in Supabase
     try {
-      await updateApplicationStatusInFirestore(id, newStatus, notes, effectiveVerifier, updatedLogs);
-      setIsFirestoreConnected(true);
+      await updateApplicationStatusInSupabase(id, newStatus, notes, effectiveVerifier, updatedLogs);
     } catch (err) {
-      console.error('Gagal memperbarui status di Firestore:', err);
+      console.error('Gagal memperbarui status di Supabase:', err);
     }
   };
 
@@ -382,12 +369,11 @@ export default function App() {
       'success'
     );
 
-    // Update in Firestore
+    // Update in Supabase
     try {
-      await updateApplicationLoanInFirestore(id, updatedLoan, newStatus, notes, effectiveVerifier, updatedLogs);
-      setIsFirestoreConnected(true);
+      await updateApplicationLoanInSupabase(id, updatedLoan, newStatus, notes, effectiveVerifier, updatedLogs);
     } catch (err) {
-      console.error('Gagal memperbarui pinjaman di Firestore:', err);
+      console.error('Gagal memperbarui pinjaman di Supabase:', err);
     }
   };
 
@@ -508,21 +494,23 @@ export default function App() {
               )}
             </button>
 
-            {/* Firestore status pill */}
-            <div 
-              className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition ${
-                isFirestoreConnected 
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                  : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+            {/* Supabase status badge & modal trigger */}
+            <button 
+              type="button"
+              onClick={() => setIsSupabaseModalOpen(true)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-semibold transition cursor-pointer shadow-sm ${
+                isSupabaseConnected 
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+                  : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:text-white hover:border-emerald-500/50'
               }`}
-              title={isFirestoreConnected ? 'Database Firestore Online & Tersinkronisasi' : 'Menghubungkan ke Database...'}
+              title="Klik untuk Pengaturan Database Supabase & Migrasi Data"
             >
-              <span className={`w-2 h-2 rounded-full ${isFirestoreConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-              <Database className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">
-                {isFirestoreConnected ? 'Cloud Online' : 'Sinkronisasi'}
+              <span className={`w-2 h-2 rounded-full ${isSupabaseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-emerald-500'}`} />
+              <Database className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">
+                {isSupabaseConnected ? 'Supabase Online' : 'Database Supabase'}
               </span>
-            </div>
+            </button>
 
             <PWAInstallButton />
           </div>
@@ -758,6 +746,7 @@ export default function App() {
               onUpdateLoan={handleUpdateLoan}
               onSwitchToMobile={() => setActiveTab('mobile')}
               onNavigateToSita={() => setActiveTab('sita')}
+              onOpenDatabaseSettings={() => setIsSupabaseModalOpen(true)}
               currentAnalystName={currentUser.displayName}
             />
           )}
@@ -794,6 +783,16 @@ export default function App() {
       </footer>
       {/* Offline Status Toast */}
       <OfflineIndicator />
+
+      {/* Supabase Database Settings & Migration Modal */}
+      <SupabaseSettingsModal
+        isOpen={isSupabaseModalOpen}
+        onClose={() => setIsSupabaseModalOpen(false)}
+        applications={applications}
+        suratSitaList={suratSitaList}
+        onDataMigrated={(updated) => setApplications(updated)}
+        onStatusChange={(status) => setIsSupabaseConnected(status)}
+      />
     </div>
   );
 }

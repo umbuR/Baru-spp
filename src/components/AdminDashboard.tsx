@@ -24,7 +24,8 @@ import {
   Calculator,
   Edit3,
   History,
-  FileWarning
+  FileWarning,
+  Database
 } from 'lucide-react';
 import { LoanApplication, ApplicationStatus, LoanTerms } from '../types';
 import { formatRupiah, formatDateIndo, downloadLoanAgreementPdf } from '../utils/pdfGenerator';
@@ -38,6 +39,7 @@ interface AdminDashboardProps {
   onRefreshData?: () => void;
   onSwitchToMobile?: () => void;
   onNavigateToSita?: (appId?: string) => void;
+  onOpenDatabaseSettings?: () => void;
   currentAnalystName?: string;
 }
 
@@ -47,6 +49,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdateLoan,
   onSwitchToMobile,
   onNavigateToSita,
+  onOpenDatabaseSettings,
   currentAnalystName
 }) => {
   // Search & Filter State
@@ -251,14 +254,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
 
-        {onSwitchToMobile && (
-          <button
-            onClick={onSwitchToMobile}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-blue-300 text-xs font-semibold border border-slate-700 shadow-md transition"
-          >
-            <span>📱 Buka Form Nasabah (HP View)</span>
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {onOpenDatabaseSettings && (
+            <button
+              onClick={onOpenDatabaseSettings}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs font-semibold border border-emerald-500/30 shadow-md transition"
+              title="Konfigurasi Database Supabase & Migrasi Data"
+            >
+              <Database className="w-4 h-4 text-emerald-400" />
+              <span>Database Supabase</span>
+            </button>
+          )}
+          {onSwitchToMobile && (
+            <button
+              onClick={onSwitchToMobile}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-blue-300 text-xs font-semibold border border-slate-700 shadow-md transition"
+            >
+              <span>📱 Buka Form Nasabah (HP View)</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Metrics Summary Grid */}
