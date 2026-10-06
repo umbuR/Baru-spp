@@ -1,0 +1,6 @@
+{
+  "summary": "Rencana implementasi migrasi database dari Google Cloud Firestore ke Supabase PostgreSQL / Turso, lengkap dengan skema tabel relasional, adaptor klien Supabase, transfer data otomatis dari data Firestore yang ada, dan status koneksi real-time di aplikasi.",
+  "updatedAt": "2026-10-06T15:18:25.283692571Z",
+  "requestFeedback": true,
+  "userFacing": true
+}
