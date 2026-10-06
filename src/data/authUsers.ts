@@ -56,7 +56,7 @@ export const PRESET_ACCOUNTS: Record<'kolektor' | 'analyst', PresetAccount> = {
       'Penyesuaian plafon pinjaman & tenor angsuran',
       'Persetujuan (Approve) & Penolakan (Reject) dengan catatan verifikasi',
       'Penerbitan surat perjanjian resmi bernomor kontrak PM Mitra Sejahtera',
-      'Akses pemantauan skema database Firestore & audit log'
+      'Akses pemantauan data real-time Firestore & audit log'
     ]
   }
 };

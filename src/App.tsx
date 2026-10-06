@@ -40,7 +40,6 @@ import {
 import { MobileLoanFlow } from './components/MobileLoanFlow';
 import { AdminDashboard } from './components/AdminDashboard';
 import { SuratSitaBarangView } from './components/SuratSitaBarangView';
-import { DatabaseSchemaView } from './components/DatabaseSchemaView';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { LoginPage } from './components/LoginPage';
@@ -58,7 +57,7 @@ export default function App() {
   });
 
   // Navigation tabs
-  type ActiveTab = 'mobile' | 'admin' | 'sita' | 'database';
+  type ActiveTab = 'mobile' | 'admin' | 'sita';
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
     return currentUser?.role === 'ANALYST' ? 'admin' : 'mobile';
   });
@@ -600,20 +599,6 @@ export default function App() {
               {suratSitaList.length}
             </span>
           </button>
-
-          {/* Tab 4: Database Cloud Firestore */}
-          <button
-            onClick={() => setActiveTab('database')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-semibold whitespace-nowrap transition ${
-              activeTab === 'database'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-900/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <Database className="w-4 h-4" />
-            <span>Database Cloud Firestore & Skema</span>
-          </button>
-
         </div>
       </header>
 
@@ -791,14 +776,6 @@ export default function App() {
             currentUser={currentUser}
           />
         </div>
-
-        {/* =========================================================
-            TAB 4: SKEMA DATABASE SUPABASE & RLS
-        ========================================================= */}
-        <div style={{ display: activeTab === 'database' ? 'block' : 'none' }}>
-          <DatabaseSchemaView />
-        </div>
-
 
       </main>
 

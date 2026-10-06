@@ -446,7 +446,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         <div className="mt-6 flex flex-wrap items-center justify-between text-xs text-slate-500 px-2 gap-2">
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4 text-emerald-500" />
-            <span>Terkoneksi Aman Cloud Firestore & Database SPP</span>
+            <span>Terkoneksi Aman & Penyimpanan Terenkripsi SPP</span>
           </div>
           <div className="flex items-center gap-3">
             <span>Enkripsi 256-Bit</span>
