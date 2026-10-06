@@ -14,6 +14,7 @@ import {
   ShieldCheck, 
   Calculator, 
   AlertCircle,
+  Info,
   Eye,
   RefreshCw,
   Sparkles,
@@ -124,6 +125,7 @@ interface LoanFormDraft {
   currentStep?: number;
   applicant?: ApplicantData;
   witness?: WitnessData;
+  hasWitness?: boolean;
   locationTag?: LocationTagData;
   loanAmount?: number;
   tenorWeeks?: number;
@@ -250,6 +252,11 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
     return initialDraft?.witness ? { ...defaultWitness, ...initialDraft.witness } : defaultWitness;
   });
 
+  // Opsi Saksi Perjanjian Pinjaman (true: Dengan Saksi, false: Tanpa Saksi)
+  const [hasWitness, setHasWitness] = useState<boolean>(() => {
+    return initialDraft?.hasWitness ?? true;
+  });
+
   // Loan terms state (Plafon Rp 500.000 s/d Rp 10.000.000, Tenor 4, 6, 8, 10, 12 minggu)
   const [loanAmount, setLoanAmount] = useState<number>(() => {
     return initialDraft?.loanAmount ?? 3000000;
@@ -316,6 +323,7 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
         currentStep,
         applicant,
         witness,
+        hasWitness,
         locationTag,
         loanAmount,
         tenorWeeks,
@@ -476,10 +484,12 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
     if (!applicant.phoneNumber.trim()) errors.phoneNumber = 'Nomor HP nasabah wajib diisi';
     if (!applicant.bankAccountNumber.trim()) errors.bankAccountNumber = 'Nomor rekening bank wajib diisi';
     
-    // Saksi validation
-    if (!witness.fullName.trim()) errors.witnessFullName = 'Nama lengkap saksi wajib diisi';
-    if (!witness.nik || witness.nik.length !== 16) errors.witnessNik = 'NIK saksi harus tepat 16 digit';
-    if (!witness.phoneNumber.trim()) errors.witnessPhoneNumber = 'Nomor HP saksi wajib diisi';
+    // Saksi validation (hanya jika mode Dengan Saksi dipilih)
+    if (hasWitness) {
+      if (!witness.fullName.trim()) errors.witnessFullName = 'Nama lengkap saksi wajib diisi';
+      if (!witness.nik || witness.nik.length !== 16) errors.witnessNik = 'NIK saksi harus tepat 16 digit';
+      if (!witness.phoneNumber.trim()) errors.witnessPhoneNumber = 'Nomor HP saksi wajib diisi';
+    }
 
     // Collateral validation (jika memilih opsi dengan jaminan)
     if (collateralType !== 'NONE') {
@@ -608,7 +618,8 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
       createdAt: now,
       updatedAt: now,
       applicant,
-      witness,
+      hasWitness,
+      witness: hasWitness ? witness : undefined,
       loan: currentLoanTerms,
       collateral: collateralType !== 'NONE' ? {
         ...collateralData,
@@ -622,9 +633,9 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
         kkUrl: kkPhoto || '',
         selfieUrl: selfiePhoto || '',
         signatureUrl: signatureData || '',
-        witnessKtpUrl: witnessKtpPhoto || '',
-        witnessSelfieUrl: witnessSelfiePhoto || '',
-        witnessSignatureUrl: witnessSignatureData || '',
+        witnessKtpUrl: hasWitness ? (witnessKtpPhoto || '') : '',
+        witnessSelfieUrl: hasWitness ? (witnessSelfiePhoto || '') : '',
+        witnessSignatureUrl: hasWitness ? (witnessSignatureData || '') : '',
         collateralDocUrl: collateralType !== 'NONE' ? (collateralDocPhoto || '') : '',
         collateralPhotoUrl: collateralType !== 'NONE' ? (collateralPhysPhoto || '') : ''
       },
@@ -1255,24 +1266,94 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
               </div>
             </div>
 
-            {/* Witness Data Card (Data Saksi Perjanjian) */}
-            <div className="bg-slate-800/80 border border-teal-500/40 rounded-2xl p-3.5 shadow-lg space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-700/80">
+            {/* Opsi Saksi Perjanjian Pinjaman (Fitur Tanpa Saksi Khusus Surat Perjanjian Pinjaman) */}
+            <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-3.5 shadow-lg space-y-3">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center">
                     <Users className="w-3.5 h-3.5" />
                   </div>
                   <div>
                     <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                      Data Saksi / Penjamin
+                      Opsi Saksi Perjanjian Pinjaman
                     </h3>
-                    <p className="text-[10px] text-teal-300/80">Wajib tercantum dalam Surat Perjanjian Pinjaman</p>
+                    <p className="text-[10px] text-slate-400">Pilih apakah perjanjian melibatkan saksi atau tanpa saksi</p>
                   </div>
                 </div>
-                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30">
-                  SAKSI SAH
+                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                  hasWitness
+                    ? 'bg-teal-500/20 text-teal-300 border-teal-500/30'
+                    : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                }`}>
+                  {hasWitness ? 'DENGAN SAKSI' : 'TANPA SAKSI'}
                 </span>
               </div>
+
+              {/* Segmented Selector */}
+              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-900/90 rounded-xl border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setHasWitness(true)}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                    hasWitness
+                      ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  Dengan Saksi (Sah)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHasWitness(false)}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                    !hasWitness
+                      ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <User className="w-3.5 h-3.5" />
+                  Tanpa Saksi
+                </button>
+              </div>
+
+              {!hasWitness ? (
+                <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/30 flex items-start gap-2.5 text-[11px] text-amber-200">
+                  <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold text-amber-300">Mode Perjanjian Tanpa Saksi Aktif</p>
+                    <p className="text-slate-300 text-[10px] leading-relaxed">
+                      Surat perjanjian pinjaman akan diterbitkan langsung antara Pihak Pertama (Pemberi Pinjaman) dan Pihak Kedua (Nasabah). Tahapan input data saksi, foto e-KTP saksi, selfie liveness saksi, dan tanda tangan saksi akan <strong>dilewati secara otomatis</strong>.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-xl bg-teal-950/30 border border-teal-500/20 text-[10px] text-teal-300/90 flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                  <span>Saksi/penjamin wajib mengisi identitas, foto e-KTP, selfie liveness, dan tanda tangan digital.</span>
+                </div>
+              )}
+            </div>
+
+            {/* Witness Data Card (Hanya muncul jika mode Dengan Saksi dipilih) */}
+            {hasWitness && (
+              <div className="bg-slate-800/80 border border-teal-500/40 rounded-2xl p-3.5 shadow-lg space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-700/80">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center">
+                      <Users className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                        Data Saksi / Penjamin
+                      </h3>
+                      <p className="text-[10px] text-teal-300/80">Wajib tercantum dalam Surat Perjanjian Pinjaman</p>
+                    </div>
+                  </div>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                    SAKSI SAH
+                  </span>
+                </div>
 
               {/* Nama Lengkap Saksi */}
               <div>
@@ -1360,6 +1441,7 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                 </div>
               </div>
             </div>
+          )}
 
             {/* ========================================================
                 PILIHAN JAMINAN / AGUNAN PINJAMAN
@@ -1796,73 +1878,90 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                 )}
               </div>
 
-              {/* Witness KTP Capture Card */}
-              <div className="border border-teal-500/40 rounded-xl p-3 bg-teal-950/20">
-                <div className="flex justify-between items-center mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-teal-400" />
-                    <span className="text-xs font-bold text-white">
-                      3. Foto e-KTP Saksi ({witness.fullName})
-                    </span>
-                  </div>
-                  {witnessKtpPhoto ? (
-                    <span className="text-[10px] text-teal-300 font-semibold flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> KTP Saksi Siap
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-amber-400">Wajib Diambil</span>
-                  )}
-                </div>
-
-                {witnessKtpPhoto ? (
-                  <div className="space-y-2">
-                    <div className="relative rounded-lg overflow-hidden border border-teal-600/40">
-                      <img src={witnessKtpPhoto} alt="KTP Saksi Preview" className="w-full h-36 object-contain bg-black/40" />
+              {/* Witness KTP Capture Card (Hanya jika mode Dengan Saksi dipilih) */}
+              {!hasWitness ? (
+                <div className="border border-amber-500/30 rounded-xl p-3 bg-amber-950/20 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                      <User className="w-4 h-4" />
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-xs font-bold text-amber-200 block">3. Foto e-KTP Saksi (Dilewati)</span>
+                      <span className="text-[10px] text-slate-400">Mode perjanjian tanpa saksi aktif (tidak memerlukan e-KTP saksi)</span>
+                    </div>
+                  </div>
+                  <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                    Tanpa Saksi
+                  </span>
+                </div>
+              ) : (
+                <div className="border border-teal-500/40 rounded-xl p-3 bg-teal-950/20">
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-teal-400" />
+                      <span className="text-xs font-bold text-white">
+                        3. Foto e-KTP Saksi ({witness.fullName})
+                      </span>
+                    </div>
+                    {witnessKtpPhoto ? (
+                      <span className="text-[10px] text-teal-300 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> KTP Saksi Siap
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-amber-400">Wajib Diambil</span>
+                    )}
+                  </div>
+
+                  {witnessKtpPhoto ? (
+                    <div className="space-y-2">
+                      <div className="relative rounded-lg overflow-hidden border border-teal-600/40">
+                        <img src={witnessKtpPhoto} alt="KTP Saksi Preview" className="w-full h-36 object-contain bg-black/40" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDocCamera('witness_ktp')}
+                          className="w-full bg-slate-900/90 hover:bg-slate-800 text-teal-300 border border-teal-600/50 text-[11px] font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          Kamera KTP Saksi
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => witnessKtpGalleryInputRef.current?.click()}
+                          className="w-full bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 text-[11px] font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition"
+                        >
+                          <ImageIcon className="w-3.5 h-3.5 text-teal-400" />
+                          Ganti dari Galeri HP
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
                       <button
                         type="button"
                         onClick={() => handleOpenDocCamera('witness_ktp')}
-                        className="w-full bg-slate-900/90 hover:bg-slate-800 text-teal-300 border border-teal-600/50 text-[11px] font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition"
+                        className="w-full py-6 border-2 border-dashed border-teal-700/60 hover:border-teal-400 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-2 text-teal-300/70 hover:text-teal-300 transition"
                       >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        Kamera KTP Saksi
+                        <div className="w-10 h-10 rounded-full bg-teal-600/20 text-teal-400 flex items-center justify-center">
+                          <Camera className="w-5 h-5" />
+                        </div>
+                        <span className="text-xs font-semibold text-white">Buka Kamera e-KTP Saksi (Dengan Bingkai Panduan)</span>
+                        <span className="text-[10px] text-slate-400">Foto e-KTP asli milik saksi {witness.fullName}</span>
                       </button>
+
                       <button
                         type="button"
                         onClick={() => witnessKtpGalleryInputRef.current?.click()}
-                        className="w-full bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40 text-[11px] font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition"
+                        className="w-full py-2.5 px-3 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 text-teal-300 text-xs font-semibold flex items-center justify-center gap-2 transition"
                       >
-                        <ImageIcon className="w-3.5 h-3.5 text-teal-400" />
-                        Ganti dari Galeri HP
+                        <ImageIcon className="w-4 h-4 text-teal-400" />
+                        <span>Ambil Foto e-KTP Saksi dari Galeri HP</span>
                       </button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenDocCamera('witness_ktp')}
-                      className="w-full py-6 border-2 border-dashed border-teal-700/60 hover:border-teal-400 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-2 text-teal-300/70 hover:text-teal-300 transition"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-teal-600/20 text-teal-400 flex items-center justify-center">
-                        <Camera className="w-5 h-5" />
-                      </div>
-                      <span className="text-xs font-semibold text-white">Buka Kamera e-KTP Saksi (Dengan Bingkai Panduan)</span>
-                      <span className="text-[10px] text-slate-400">Foto e-KTP asli milik saksi {witness.fullName}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => witnessKtpGalleryInputRef.current?.click()}
-                      className="w-full py-2.5 px-3 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 text-teal-300 text-xs font-semibold flex items-center justify-center gap-2 transition"
-                    >
-                      <ImageIcon className="w-4 h-4 text-teal-400" />
-                      <span>Ambil Foto e-KTP Saksi dari Galeri HP</span>
-                    </button>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
               {/* Collateral Document Photos (If collateral selected) */}
               {collateralType !== 'NONE' && (
@@ -2043,11 +2142,13 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                 </h3>
               </div>
               <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-                Kamera depan HP akan mengaktifkan bingkai oval deteksi wajah untuk nasabah dan saksi. Pastikan wajah berada di tempat terang tanpa topi atau masker.
+                {hasWitness
+                  ? 'Kamera depan HP akan mengaktifkan bingkai oval deteksi wajah untuk nasabah dan saksi. Pastikan wajah berada di tempat terang tanpa topi atau masker.'
+                  : 'Kamera depan HP akan mengaktifkan bingkai oval deteksi wajah untuk nasabah peminjam. Pastikan wajah berada di tempat terang tanpa topi atau masker.'}
               </p>
 
-              {/* Grid 2 Columns for Nasabah & Saksi Selfie */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Grid 2 Columns for Nasabah & Saksi Selfie (atau 1 Column jika Tanpa Saksi) */}
+              <div className={`grid grid-cols-1 ${hasWitness ? 'sm:grid-cols-2' : 'max-w-md mx-auto'} gap-3`}>
                 {/* Selfie Nasabah */}
                 <div className="border border-slate-700 rounded-xl p-3 bg-slate-900/60 flex flex-col justify-between">
                   <div>
@@ -2112,69 +2213,71 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                   </div>
                 </div>
 
-                {/* Selfie Saksi */}
-                <div className="border border-teal-600/40 rounded-xl p-3 bg-teal-950/20 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-teal-400" />
-                        2. Saksi: {witness.fullName}
-                      </span>
-                      {witnessSelfiePhoto ? (
-                        <span className="text-[9px] text-teal-300 font-bold">Terverifikasi</span>
-                      ) : (
-                        <span className="text-[9px] text-amber-400">Wajib</span>
-                      )}
-                    </div>
+                {/* Selfie Saksi (Hanya jika mode Dengan Saksi dipilih) */}
+                {hasWitness && (
+                  <div className="border border-teal-600/40 rounded-xl p-3 bg-teal-950/20 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-teal-400" />
+                          2. Saksi: {witness.fullName}
+                        </span>
+                        {witnessSelfiePhoto ? (
+                          <span className="text-[9px] text-teal-300 font-bold">Terverifikasi</span>
+                        ) : (
+                          <span className="text-[9px] text-amber-400">Wajib</span>
+                        )}
+                      </div>
 
-                    {witnessSelfiePhoto ? (
-                      <div className="text-center space-y-2 py-1">
-                        <div className="relative w-28 h-28 mx-auto rounded-full overflow-hidden border-3 border-teal-500 shadow-lg">
-                          <img src={witnessSelfiePhoto} alt="Selfie Saksi" className="w-full h-full object-cover" />
-                          <div className="absolute bottom-0 inset-x-0 bg-teal-600/90 text-white text-[8px] font-bold py-0.5">
-                            Saksi Liveness
+                      {witnessSelfiePhoto ? (
+                        <div className="text-center space-y-2 py-1">
+                          <div className="relative w-28 h-28 mx-auto rounded-full overflow-hidden border-3 border-teal-500 shadow-lg">
+                            <img src={witnessSelfiePhoto} alt="Selfie Saksi" className="w-full h-full object-cover" />
+                            <div className="absolute bottom-0 inset-x-0 bg-teal-600/90 text-white text-[8px] font-bold py-0.5">
+                              Saksi Liveness
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1.5 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDocCamera('witness_selfie')}
+                              className="w-full py-1.5 rounded-lg bg-slate-800 border border-teal-700/60 text-teal-300 text-[10px] font-medium hover:bg-slate-700 flex items-center justify-center gap-1"
+                            >
+                              <RefreshCw className="w-3 h-3 text-teal-400" /> Ulang Kamera
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => witnessSelfieGalleryInputRef.current?.click()}
+                              className="w-full py-1.5 rounded-lg bg-teal-600/20 border border-teal-500/40 text-teal-300 text-[10px] font-medium hover:bg-teal-600/30 flex items-center justify-center gap-1"
+                            >
+                              <ImageIcon className="w-3 h-3 text-teal-400" /> Galeri HP
+                            </button>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-1.5 pt-1">
+                      ) : (
+                        <div className="space-y-2">
                           <button
                             type="button"
                             onClick={() => handleOpenDocCamera('witness_selfie')}
-                            className="w-full py-1.5 rounded-lg bg-slate-800 border border-teal-700/60 text-teal-300 text-[10px] font-medium hover:bg-slate-700 flex items-center justify-center gap-1"
+                            className="w-full py-6 border-2 border-dashed border-teal-700/60 hover:border-teal-400 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-1.5 text-teal-300/70 hover:text-teal-300 transition"
                           >
-                            <RefreshCw className="w-3 h-3 text-teal-400" /> Ulang Kamera
+                            <UserCheck className="w-6 h-6 text-teal-400" />
+                            <span className="text-[11px] font-bold text-white">Kamera Wajah Saksi</span>
+                            <span className="text-[9px] text-slate-400">Pindai Wajah Saksi</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => witnessSelfieGalleryInputRef.current?.click()}
-                            className="w-full py-1.5 rounded-lg bg-teal-600/20 border border-teal-500/40 text-teal-300 text-[10px] font-medium hover:bg-teal-600/30 flex items-center justify-center gap-1"
+                            className="w-full py-2 px-2.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 text-teal-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition"
                           >
-                            <ImageIcon className="w-3 h-3 text-teal-400" /> Galeri HP
+                            <ImageIcon className="w-3.5 h-3.5 text-teal-400" />
+                            <span>Ambil Wajah dari Galeri HP</span>
                           </button>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenDocCamera('witness_selfie')}
-                          className="w-full py-6 border-2 border-dashed border-teal-700/60 hover:border-teal-400 rounded-xl bg-slate-800/40 flex flex-col items-center justify-center gap-1.5 text-teal-300/70 hover:text-teal-300 transition"
-                        >
-                          <UserCheck className="w-6 h-6 text-teal-400" />
-                          <span className="text-[11px] font-bold text-white">Kamera Wajah Saksi</span>
-                          <span className="text-[9px] text-slate-400">Pindai Wajah Saksi</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => witnessSelfieGalleryInputRef.current?.click()}
-                          className="w-full py-2 px-2.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 text-teal-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition"
-                        >
-                          <ImageIcon className="w-3.5 h-3.5 text-teal-400" />
-                          <span>Ambil Wajah dari Galeri HP</span>
-                        </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Liveness Criteria Badge */}
@@ -2297,23 +2400,27 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
               withMaterai={true}
             />
 
-            {/* Signature Canvas Pad 2: Saksi / Penjamin */}
-            <SignaturePad
-              onSave={(sigData) => setWitnessSignatureData(sigData)}
-              savedSignature={witnessSignatureData}
-              personName={witness.fullName}
-              personNik={witness.nik}
-              relationship={witness.relationship}
-              roleTitle="2. Tanda Tangan Saksi Perjanjian"
-              roleBadge="Saksi Sah / Penjamin"
-              withMaterai={false}
-            />
+            {/* Signature Canvas Pad 2: Saksi / Penjamin (Hanya jika mode Dengan Saksi dipilih) */}
+            {hasWitness && (
+              <SignaturePad
+                onSave={(sigData) => setWitnessSignatureData(sigData)}
+                savedSignature={witnessSignatureData}
+                personName={witness.fullName}
+                personNik={witness.nik}
+                relationship={witness.relationship}
+                roleTitle="2. Tanda Tangan Saksi Perjanjian"
+                roleBadge="Saksi Sah / Penjamin"
+                withMaterai={false}
+              />
+            )}
 
             {/* Legal Notice */}
             <div className="p-2.5 rounded-xl bg-blue-950/40 border border-blue-800/40 flex items-start gap-2 text-[10px] text-blue-300">
               <AlertCircle className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
               <span>
-                Dengan menandatangani dan memverifikasi biometrik, Peminjam dan Saksi menyatakan bahwa seluruh data yang diberikan adalah benar dan mengikat dalam Perjanjian Pinjaman PM Mitra Sejahtera Bersama.
+                {hasWitness
+                  ? 'Dengan menandatangani dan memverifikasi biometrik, Peminjam dan Saksi menyatakan bahwa seluruh data yang diberikan adalah benar dan mengikat dalam Perjanjian Pinjaman PM Mitra Sejahtera Bersama.'
+                  : 'Dengan menandatangani dan memverifikasi biometrik, Peminjam menyatakan bahwa seluruh data yang diberikan adalah benar dan mengikat penuh dalam Perjanjian Pinjaman PM Mitra Sejahtera Bersama.'}
               </span>
             </div>
 
@@ -2353,7 +2460,9 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                 Perjanjian Pinjaman Berhasil Diterbitkan!
               </h3>
               <p className="text-xs text-slate-300 mt-1 max-w-xs mx-auto leading-relaxed">
-                Dokumen telah ditandatangani secara elektronik bersama saksi dengan segel biometrik WebAuthn dan dikirim ke sistem verifikator.
+                {submittedApp.hasWitness !== false && submittedApp.witness
+                  ? 'Dokumen telah ditandatangani secara elektronik bersama saksi dengan segel biometrik WebAuthn dan dikirim ke sistem verifikator.'
+                  : 'Dokumen telah ditandatangani secara elektronik langsung tanpa saksi dengan segel biometrik WebAuthn dan dikirim ke sistem verifikator.'}
               </p>
 
               <div className="mt-4 p-2.5 bg-slate-900/80 rounded-xl border border-slate-800 text-left space-y-1.5 text-xs">
@@ -2365,7 +2474,7 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                   <span className="text-slate-400 text-[11px]">Nama Nasabah:</span>
                   <span className="font-bold text-white">{submittedApp.applicant.fullName}</span>
                 </div>
-                {submittedApp.witness && (
+                {submittedApp.hasWitness !== false && submittedApp.witness ? (
                   <>
                     <div className="flex justify-between">
                       <span className="text-slate-400 text-[11px]">Saksi Penjamin:</span>
@@ -2380,6 +2489,13 @@ export const MobileLoanFlow: React.FC<MobileLoanFlowProps> = ({
                       </span>
                     </div>
                   </>
+                ) : (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 text-[11px]">Saksi Perjanjian:</span>
+                    <span className="font-bold text-amber-400 text-[11px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                      Tanpa Saksi (Langsung Peminjam)
+                    </span>
+                  </div>
                 )}
                 {submittedApp.collateral && (
                   <div className="flex justify-between items-start pt-1 border-t border-slate-800/80">

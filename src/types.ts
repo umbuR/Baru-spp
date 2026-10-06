@@ -111,6 +111,7 @@ export interface LoanApplication {
   createdAt: string;
   updatedAt: string;
   applicant: ApplicantData;
+  hasWitness?: boolean; // Fitur saksi opsional: true jika dengan saksi, false jika tanpa saksi (khusus Surat Perjanjian Pinjaman)
   witness?: WitnessData;
   loan: LoanTerms;
   collateral?: CollateralData;

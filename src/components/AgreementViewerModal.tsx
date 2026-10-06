@@ -50,7 +50,8 @@ export const AgreementViewerModal: React.FC<AgreementViewerModalProps> = ({
   const installmentAmount = application.loan.weeklyInstallment || Math.round(application.loan.totalRepayment / tenorWeeks);
   const terbilangPinjaman = numberToWordsIndo(application.loan.loanAmount);
 
-  // Witness fallback data for display
+  // Witness status and fallback data for display
+  const hasWitness = application.hasWitness ?? (!!application.witness?.fullName && application.witness.fullName.trim() !== '');
   const witnessName = application.witness?.fullName || 'Siti Rahmawati';
   const witnessNik = application.witness?.nik || '3174055502940002';
   const witnessRel = application.witness?.relationship || 'Rekan Kerja / Penjamin';
@@ -354,19 +355,31 @@ export const AgreementViewerModal: React.FC<AgreementViewerModalProps> = ({
                 </div>
               </div>
 
-              {/* SAKSI */}
-              <div className="p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-200">
-                <div className="flex items-center gap-2 font-bold text-emerald-900 mb-2">
-                  <Users className="w-4 h-4 text-emerald-700 shrink-0" />
-                  SAKSI (Saksi Perjanjian / Penjamin)
+              {/* SAKSI ATAU KETERANGAN TANPA SAKSI */}
+              {hasWitness ? (
+                <div className="p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-200">
+                  <div className="flex items-center gap-2 font-bold text-emerald-900 mb-2">
+                    <Users className="w-4 h-4 text-emerald-700 shrink-0" />
+                    SAKSI (Saksi Perjanjian / Penjamin)
+                  </div>
+                  <div className="pl-6 space-y-1 text-xs sm:text-sm">
+                    <div className="flex"><span className="w-24 text-slate-600">Nama Saksi</span><span className="mr-2">:</span><strong>{witnessName}</strong></div>
+                    <div className="flex"><span className="w-24 text-slate-600">NIK Saksi</span><span className="mr-2">:</span><span className="font-mono text-slate-700">{witnessNik}</span></div>
+                    <div className="flex"><span className="w-24 text-slate-600">Hubungan</span><span className="mr-2">:</span><span>{witnessRel}</span></div>
+                    <div className="flex"><span className="w-24 text-slate-600">No. HP</span><span className="mr-2">:</span><span className="font-mono">{witnessPhone}</span></div>
+                  </div>
                 </div>
-                <div className="pl-6 space-y-1 text-xs sm:text-sm">
-                  <div className="flex"><span className="w-24 text-slate-600">Nama Saksi</span><span className="mr-2">:</span><strong>{witnessName}</strong></div>
-                  <div className="flex"><span className="w-24 text-slate-600">NIK Saksi</span><span className="mr-2">:</span><span className="font-mono text-slate-700">{witnessNik}</span></div>
-                  <div className="flex"><span className="w-24 text-slate-600">Hubungan</span><span className="mr-2">:</span><span>{witnessRel}</span></div>
-                  <div className="flex"><span className="w-24 text-slate-600">No. HP</span><span className="mr-2">:</span><span className="font-mono">{witnessPhone}</span></div>
+              ) : (
+                <div className="p-3.5 bg-amber-50/70 rounded-xl border border-amber-200">
+                  <div className="flex items-center gap-2 font-bold text-amber-900 mb-1">
+                    <Shield className="w-4 h-4 text-amber-700 shrink-0" />
+                    STATUS SAKSI: DITERBITKAN TANPA SAKSI
+                  </div>
+                  <p className="pl-6 text-xs text-amber-800 leading-relaxed">
+                    Surat Perjanjian Pinjaman ini disepakati dan ditandatangani langsung antara <strong>Pihak Pertama</strong> (Pemberi Pinjaman) dan <strong>Pihak Kedua</strong> (Nasabah) tanpa melibatkan saksi atau penjamin. Tanggung jawab pembayaran dan hukum berada penuh pada Pihak Kedua.
+                  </p>
                 </div>
-              </div>
+              )}
             </div>
 
             <p className="text-xs sm:text-sm text-slate-800 leading-relaxed mb-5 text-justify">
@@ -524,8 +537,8 @@ export const AgreementViewerModal: React.FC<AgreementViewerModalProps> = ({
               <p>Tanggal &nbsp; : <strong>{tanggal} {bulan} {tahun}</strong></p>
             </div>
 
-            {/* Signatures Section: 3-Column Layout */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6 mt-4 border-t border-slate-300">
+            {/* Signatures Section: 3-Column atau 2-Column jika Tanpa Saksi */}
+            <div className={`grid grid-cols-1 ${hasWitness ? 'md:grid-cols-3' : 'md:grid-cols-2 max-w-xl mx-auto'} gap-4 pt-6 mt-4 border-t border-slate-300`}>
               {/* Pihak Pertama */}
               <div className="text-center">
                 <p className="text-xs font-semibold text-slate-700 mb-2">PIHAK PERTAMA (Pemberi Pinjaman)</p>
@@ -599,40 +612,42 @@ export const AgreementViewerModal: React.FC<AgreementViewerModalProps> = ({
                 </div>
               </div>
 
-              {/* SAKSI */}
-              <div className="text-center">
-                <div className="mb-2">
-                  <p className="text-xs font-bold text-emerald-900 uppercase">SAKSI PERJANJIAN (Penjamin)</p>
-                  <p className="text-[10px] text-slate-500 truncate">Nama: <span className="font-bold text-emerald-800">{witnessName}</span></p>
-                </div>
-                <div className="relative h-28 flex items-center justify-center border border-dashed border-emerald-300 rounded-xl bg-emerald-50/50 p-2 overflow-hidden shadow-inner">
-                  {witnessSignature ? (
-                    <img
-                      src={witnessSignature}
-                      alt={`Tanda Tangan Saksi: ${witnessName}`}
-                      className="max-h-24 w-auto object-contain drop-shadow-sm"
-                    />
-                  ) : (
-                    <span className="text-[10px] text-slate-400 italic">
-                      Tanda tangan saksi
+              {/* SAKSI (Hanya jika mode Dengan Saksi) */}
+              {hasWitness && (
+                <div className="text-center">
+                  <div className="mb-2">
+                    <p className="text-xs font-bold text-emerald-900 uppercase">SAKSI PERJANJIAN (Penjamin)</p>
+                    <p className="text-[10px] text-slate-500 truncate">Nama: <span className="font-bold text-emerald-800">{witnessName}</span></p>
+                  </div>
+                  <div className="relative h-28 flex items-center justify-center border border-dashed border-emerald-300 rounded-xl bg-emerald-50/50 p-2 overflow-hidden shadow-inner">
+                    {witnessSignature ? (
+                      <img
+                        src={witnessSignature}
+                        alt={`Tanda Tangan Saksi: ${witnessName}`}
+                        className="max-h-24 w-auto object-contain drop-shadow-sm"
+                      />
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic">
+                        Tanda tangan saksi
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2">
+                    <span className="inline-block px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-bold tracking-tight mb-1">
+                      Tanda Tangan Saksi Sah
                     </span>
-                  )}
-                </div>
-                <div className="mt-2">
-                  <span className="inline-block px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-bold tracking-tight mb-1">
-                    Tanda Tangan Saksi Sah
-                  </span>
-                  <p className="text-xs font-bold text-slate-900 leading-tight underline underline-offset-2">
-                    (&nbsp;{witnessName}&nbsp;)
-                  </p>
-                  <p className="text-[10px] text-slate-600 font-mono font-medium">NIK: {witnessNik}</p>
-                  {application.witness?.relationship && (
-                    <p className="text-[9px] text-emerald-700 font-semibold mt-0.5">
-                      Hubungan: {application.witness.relationship}
+                    <p className="text-xs font-bold text-slate-900 leading-tight underline underline-offset-2">
+                      (&nbsp;{witnessName}&nbsp;)
                     </p>
-                  )}
+                    <p className="text-[10px] text-slate-600 font-mono font-medium">NIK: {witnessNik}</p>
+                    {application.witness?.relationship && (
+                      <p className="text-[9px] text-emerald-700 font-semibold mt-0.5">
+                        Hubungan: {application.witness.relationship}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Biometric Verification Badge Section */}
@@ -700,50 +715,64 @@ export const AgreementViewerModal: React.FC<AgreementViewerModalProps> = ({
                 </div>
               </div>
 
-              {/* Section 2: Dokumen & Verifikasi Saksi */}
-              <div className="pt-3 border-t border-slate-200">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-800 mb-2.5 flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-emerald-600" />
-                  2. Bukti Lampiran Identitas, KTP & Selfie Saksi
-                </h4>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="border border-emerald-200 rounded-lg p-2 bg-emerald-50/50 text-center">
-                    <span className="text-[10px] font-bold text-emerald-800 block mb-1">Foto e-KTP Saksi</span>
-                    <div className="h-20 bg-slate-200 rounded flex items-center justify-center overflow-hidden">
-                      {witnessKtp ? (
-                        <img src={witnessKtp} alt="KTP Saksi" className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="text-[9px] text-slate-400">Belum diunggah</span>
-                      )}
+              {/* Section 2: Dokumen & Verifikasi Saksi (Atau Keterangan Tanpa Saksi) */}
+              {hasWitness ? (
+                <div className="pt-3 border-t border-slate-200">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-800 mb-2.5 flex items-center gap-1.5">
+                    <Users className="w-4 h-4 text-emerald-600" />
+                    2. Bukti Lampiran Identitas, KTP & Selfie Saksi
+                  </h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="border border-emerald-200 rounded-lg p-2 bg-emerald-50/50 text-center">
+                      <span className="text-[10px] font-bold text-emerald-800 block mb-1">Foto e-KTP Saksi</span>
+                      <div className="h-20 bg-slate-200 rounded flex items-center justify-center overflow-hidden">
+                        {witnessKtp ? (
+                          <img src={witnessKtp} alt="KTP Saksi" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-[9px] text-slate-400">Belum diunggah</span>
+                        )}
+                      </div>
+                      <span className="text-[9px] text-slate-500 block mt-1 truncate">{witnessName}</span>
                     </div>
-                    <span className="text-[9px] text-slate-500 block mt-1 truncate">{witnessName}</span>
-                  </div>
 
-                  <div className="border border-emerald-200 rounded-lg p-2 bg-emerald-50/50 text-center">
-                    <span className="text-[10px] font-bold text-emerald-800 block mb-1">Selfie Liveness Saksi</span>
-                    <div className="h-20 bg-slate-200 rounded flex items-center justify-center overflow-hidden">
-                      {witnessSelfie ? (
-                        <img src={witnessSelfie} alt="Selfie Saksi" className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="text-[9px] text-slate-400">Belum diunggah</span>
-                      )}
+                    <div className="border border-emerald-200 rounded-lg p-2 bg-emerald-50/50 text-center">
+                      <span className="text-[10px] font-bold text-emerald-800 block mb-1">Selfie Liveness Saksi</span>
+                      <div className="h-20 bg-slate-200 rounded flex items-center justify-center overflow-hidden">
+                        {witnessSelfie ? (
+                          <img src={witnessSelfie} alt="Selfie Saksi" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-[9px] text-slate-400">Belum diunggah</span>
+                        )}
+                      </div>
+                      <span className="text-[9px] text-emerald-600 font-semibold block mt-1">Liveness Passed</span>
                     </div>
-                    <span className="text-[9px] text-emerald-600 font-semibold block mt-1">Liveness Passed</span>
-                  </div>
 
-                  <div className="border border-emerald-200 rounded-lg p-2 bg-emerald-50/50 text-center">
-                    <span className="text-[10px] font-bold text-emerald-800 block mb-1">Tanda Tangan Saksi</span>
-                    <div className="h-20 bg-white rounded flex items-center justify-center overflow-hidden border border-emerald-200">
-                      {witnessSignature ? (
-                        <img src={witnessSignature} alt="Tanda Tangan Saksi" className="h-full w-full object-contain p-1" />
-                      ) : (
-                        <span className="text-[9px] text-slate-400">Belum ditandatangani</span>
-                      )}
+                    <div className="border border-emerald-200 rounded-lg p-2 bg-emerald-50/50 text-center">
+                      <span className="text-[10px] font-bold text-emerald-800 block mb-1">Tanda Tangan Saksi</span>
+                      <div className="h-20 bg-white rounded flex items-center justify-center overflow-hidden border border-emerald-200">
+                        {witnessSignature ? (
+                          <img src={witnessSignature} alt="Tanda Tangan Saksi" className="h-full w-full object-contain p-1" />
+                        ) : (
+                          <span className="text-[9px] text-slate-400">Belum ditandatangani</span>
+                        )}
+                      </div>
+                      <span className="text-[9px] text-emerald-700 font-mono block mt-1">E-Sign Terverifikasi</span>
                     </div>
-                    <span className="text-[9px] text-emerald-700 font-mono block mt-1">E-Sign Terverifikasi</span>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="pt-3 border-t border-slate-200">
+                  <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      <span className="font-bold text-amber-950">2. Lampiran Saksi: Diterbitkan Tanpa Saksi</span>
+                    </div>
+                    <span className="text-[10px] font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                      Perjanjian Langsung Peminjam
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Section 3: Dokumen & Fisik Jaminan (Jika ada jaminan) */}
               {application.collateral && application.collateral.type !== 'NONE' && (

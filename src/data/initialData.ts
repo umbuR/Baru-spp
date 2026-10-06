@@ -604,6 +604,7 @@ export const INITIAL_APPLICATIONS: LoanApplication[] = [
       otherLoansTotalAmount: 2000000,
       otherLoansDetails: 'Koperasi Simpan Pinjam Sejahtera (Sisa Rp 2.000.000)'
     },
+    hasWitness: true,
     witness: {
       fullName: 'Siti Rahmawati',
       nik: '3174055502940002',
@@ -686,13 +687,7 @@ export const INITIAL_APPLICATIONS: LoanApplication[] = [
       otherLoansTotalAmount: 0,
       otherLoansDetails: 'Tidak ada pinjaman berjalan di tempat lain'
     },
-    witness: {
-      fullName: 'Agus Raharjo',
-      nik: '3273101103900001',
-      relationship: 'Keluarga Kandung (Kakak)',
-      phoneNumber: '081298761122',
-      address: 'Jl. Dago Asri No. 18, Bandung'
-    },
+    hasWitness: false,
     locationTag: {
       latitude: -6.8856,
       longitude: 107.6142,
@@ -727,9 +722,9 @@ export const INITIAL_APPLICATIONS: LoanApplication[] = [
       kkUrl: sampleKkSvg,
       selfieUrl: sampleSelfieSvg,
       signatureUrl: sampleSignatureSvg,
-      witnessKtpUrl: sampleWitnessKtpSvg,
-      witnessSelfieUrl: sampleWitnessSelfieSvg,
-      witnessSignatureUrl: sampleWitnessSignatureSvg,
+      witnessKtpUrl: '',
+      witnessSelfieUrl: '',
+      witnessSignatureUrl: '',
       collateralDocUrl: sampleBpkbMobilSvg,
       collateralPhotoUrl: sampleBpkbMobilSvg
     },
@@ -779,6 +774,7 @@ export const INITIAL_APPLICATIONS: LoanApplication[] = [
       otherLoansTotalAmount: 6500000,
       otherLoansDetails: 'BRI Mikro (Rp 4.500.000) & Kredivo (Rp 2.000.000)'
     },
+    hasWitness: true,
     witness: {
       fullName: 'Maya Indah',
       nik: '3578016508900004',

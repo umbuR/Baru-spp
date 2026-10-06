@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Smartphone, 
   ShieldCheck, 
-  Database, 
-  Rocket, 
-  FolderTree, 
+  Database,
   Maximize2, 
   Minimize2, 
   Wifi, 
@@ -43,8 +41,6 @@ import { MobileLoanFlow } from './components/MobileLoanFlow';
 import { AdminDashboard } from './components/AdminDashboard';
 import { SuratSitaBarangView } from './components/SuratSitaBarangView';
 import { DatabaseSchemaView } from './components/DatabaseSchemaView';
-import { DeploymentGuideView } from './components/DeploymentGuideView';
-import { ProjectStructureView } from './components/ProjectStructureView';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { LoginPage } from './components/LoginPage';
@@ -62,7 +58,7 @@ export default function App() {
   });
 
   // Navigation tabs
-  type ActiveTab = 'mobile' | 'admin' | 'sita' | 'database' | 'deployment' | 'structure';
+  type ActiveTab = 'mobile' | 'admin' | 'sita' | 'database';
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
     return currentUser?.role === 'ANALYST' ? 'admin' : 'mobile';
   });
@@ -618,31 +614,6 @@ export default function App() {
             <span>Database Cloud Firestore & Skema</span>
           </button>
 
-          {/* Tab 4: Panduan Deployment */}
-          <button
-            onClick={() => setActiveTab('deployment')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-semibold whitespace-nowrap transition ${
-              activeTab === 'deployment'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-900/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <Rocket className="w-4 h-4" />
-            <span>Panduan Deployment Gratis</span>
-          </button>
-
-          {/* Tab 5: Struktur Folder */}
-          <button
-            onClick={() => setActiveTab('structure')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-semibold whitespace-nowrap transition ${
-              activeTab === 'structure'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-900/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <FolderTree className="w-4 h-4" />
-            <span>Struktur Folder Proyek</span>
-          </button>
         </div>
       </header>
 
@@ -828,19 +799,7 @@ export default function App() {
           <DatabaseSchemaView />
         </div>
 
-        {/* =========================================================
-            TAB 4: PANDUAN DEPLOYMENT (VERCEL + SUPABASE)
-        ========================================================= */}
-        <div style={{ display: activeTab === 'deployment' ? 'block' : 'none' }}>
-          <DeploymentGuideView />
-        </div>
 
-        {/* =========================================================
-            TAB 5: STRUKTUR FOLDER PROYEK
-        ========================================================= */}
-        <div style={{ display: activeTab === 'structure' ? 'block' : 'none' }}>
-          <ProjectStructureView />
-        </div>
       </main>
 
       {/* Footer */}

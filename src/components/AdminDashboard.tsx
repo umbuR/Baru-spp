@@ -9,6 +9,7 @@ import {
   Eye, 
   Download, 
   ShieldCheck, 
+  User,
   UserCheck, 
   AlertTriangle, 
   RefreshCw,
@@ -405,13 +406,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <td className="py-3.5 px-4">
                       <div className="font-bold text-white">{app.applicant.fullName}</div>
                       <div className="text-[10px] text-slate-400 font-mono">NIK: {app.applicant.nik}</div>
-                      <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                         <span className="px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 text-[9px] font-semibold">
                           {app.applicant.familyMemberCount || 1} Jiwa
                         </span>
                         <span className={`px-1.5 py-0.2 rounded text-[9px] font-semibold ${app.applicant.otherLoansCount === 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
                           {app.applicant.otherLoansCount === 0 ? '0 Pinj. Lain' : `${app.applicant.otherLoansCount} Pinj. Lain`}
                         </span>
+                        {app.hasWitness === false ? (
+                          <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-semibold">
+                            Tanpa Saksi
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.2 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30 text-[9px] font-semibold">
+                            Dengan Saksi
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="py-3.5 px-4">
@@ -719,8 +729,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* DATA & DOKUMEN SAKSI / PENJAMIN */}
-              {selectedApp.witness && (
+              {/* DATA & DOKUMEN SAKSI / PENJAMIN (ATAU STATUS TANPA SAKSI) */}
+              {selectedApp.hasWitness !== false && selectedApp.witness ? (
                 <div className="bg-slate-950 border border-teal-500/30 rounded-2xl p-4 bg-teal-950/10">
                   <div className="flex justify-between items-center mb-3">
                     <h4 className="text-xs font-bold text-teal-300 uppercase tracking-wider flex items-center gap-2">
@@ -825,6 +835,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </span>
                       </div>
                     </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-slate-950 border border-amber-500/30 rounded-2xl p-4 bg-amber-950/10">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+                        <User className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                          Status Saksi Perjanjian: Tanpa Saksi
+                        </h4>
+                        <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
+                          Surat Perjanjian Pinjaman ini diterbitkan langsung antara Pihak Pertama (Pemberi Pinjaman) dan Pihak Kedua (Nasabah) tanpa melibatkan saksi/penjamin, dengan tanggung jawab hukum melekat penuh pada Peminjam.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full font-bold shrink-0 self-start sm:self-auto">
+                      PERJANJIAN LANGSUNG
+                    </span>
                   </div>
                 </div>
               )}

@@ -229,11 +229,17 @@ export async function generateLoanAgreementPdf(
   ]);
 
   // PASAL 5 – TANGGUNG JAWAB NASABAH
+  const hasWitness = isBlank 
+    ? true 
+    : (app.hasWitness ?? (!!app.witness?.fullName && app.witness.fullName.trim() !== ''));
+
   renderArticle('PASAL 5 – TANGGUNG JAWAB NASABAH', [
     'Pihak Kedua bertanggung jawab penuh atas pelunasan pinjaman tanpa alasan apapun.',
     'Alasan seperti usaha sepi, sakit, kehilangan pekerjaan, atau masalah pribadi tidak menghapus kewajiban pembayaran.',
     'Pihak Kedua bersedia didatangi ke rumah, tempat usaha, atau lokasi lain untuk penagihan.',
-    'Apabila menghindar, Pihak Kedua bersedia ditagih melalui keluarga, pasangan, atau penjamin.'
+    hasWitness
+      ? 'Apabila menghindar, Pihak Kedua bersedia ditagih melalui keluarga, pasangan, atau penjamin.'
+      : 'Apabila menghindar, Pihak Kedua bersedia ditagih langsung melalui keluarga, pasangan, atau pihak terkait tempat tinggal/usaha.'
   ]);
 
   // PASAL 6 – SANKSI WANPRESTASI
@@ -408,61 +414,93 @@ export async function generateLoanAgreementPdf(
   }
   y2 += 58;
 
-  // BAGIAN B: DOKUMEN & VERIFIKASI SAKSI
-  const witnessName = app.witness?.fullName || 'Siti Rahmawati';
-  const witnessNik = app.witness?.nik || '3174055502940002';
-  const witnessRel = app.witness?.relationship || 'Penjamin';
-  const witnessSig = app.documents.witnessSignatureUrl;
+  // BAGIAN B: DOKUMEN & VERIFIKASI SAKSI (Atau Keterangan Tanpa Saksi)
+  if (hasWitness) {
+    const witnessName = app.witness?.fullName || 'Siti Rahmawati';
+    const witnessNik = app.witness?.nik || '3174055502940002';
+    const witnessRel = app.witness?.relationship || 'Penjamin';
+    const witnessSig = app.documents.witnessSignatureUrl;
 
-  doc.setFillColor(236, 253, 245);
-  doc.rect(margin, y2, contentWidth, 7, 'F');
-  doc.setTextColor(6, 95, 70);
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`B. DOKUMEN & VERIFIKASI SAKSI: ${witnessName} (NIK: ${witnessNik} | ${witnessRel})`, margin + 4, y2 + 5);
-  y2 += 11;
+    doc.setFillColor(236, 253, 245);
+    doc.rect(margin, y2, contentWidth, 7, 'F');
+    doc.setTextColor(6, 95, 70);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`B. DOKUMEN & VERIFIKASI SAKSI: ${witnessName} (NIK: ${witnessNik} | ${witnessRel})`, margin + 4, y2 + 5);
+    y2 += 11;
 
-  // Baris 2: KTP Saksi & Selfie Saksi & TTD Saksi
-  doc.setTextColor(15, 23, 42);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.text('1. Foto e-KTP Saksi:', margin, y2);
-  doc.text('2. Foto Selfie Liveness Saksi:', margin + 65, y2);
-  doc.text('3. Tanda Tangan Saksi:', margin + 125, y2);
-  y2 += 3.5;
+    // Baris 2: KTP Saksi & Selfie Saksi & TTD Saksi
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.text('1. Foto e-KTP Saksi:', margin, y2);
+    doc.text('2. Foto Selfie Liveness Saksi:', margin + 65, y2);
+    doc.text('3. Tanda Tangan Saksi:', margin + 125, y2);
+    y2 += 3.5;
 
-  const witnessKtp = app.documents.witnessKtpUrl;
-  const witnessSelfie = app.documents.witnessSelfieUrl;
+    const witnessKtp = app.documents.witnessKtpUrl;
+    const witnessSelfie = app.documents.witnessSelfieUrl;
 
-  try {
-    if (witnessKtp) {
-      doc.addImage(witnessKtp, 'JPEG', margin, y2, 58, 38);
+    try {
+      if (witnessKtp) {
+        doc.addImage(witnessKtp, 'JPEG', margin, y2, 58, 38);
+      }
+    } catch {
+      doc.rect(margin, y2, 58, 38);
+      doc.text('Foto KTP Saksi', margin + 8, y2 + 19);
     }
-  } catch {
-    doc.rect(margin, y2, 58, 38);
-    doc.text('Foto KTP Saksi', margin + 8, y2 + 19);
-  }
 
-  try {
-    if (witnessSelfie) {
-      doc.addImage(witnessSelfie, 'JPEG', margin + 65, y2, 38, 38);
+    try {
+      if (witnessSelfie) {
+        doc.addImage(witnessSelfie, 'JPEG', margin + 65, y2, 38, 38);
+      }
+    } catch {
+      doc.rect(margin + 65, y2, 38, 38);
+      doc.text('Selfie Saksi', margin + 70, y2 + 19);
     }
-  } catch {
-    doc.rect(margin + 65, y2, 38, 38);
-    doc.text('Selfie Saksi', margin + 70, y2 + 19);
-  }
 
-  try {
-    if (witnessSig) {
-      doc.setDrawColor(16, 185, 129);
+    try {
+      if (witnessSig) {
+        doc.setDrawColor(16, 185, 129);
+        doc.rect(margin + 125, y2, 45, 38);
+        doc.addImage(witnessSig, 'PNG', margin + 127, y2 + 4, 41, 28);
+      }
+    } catch {
       doc.rect(margin + 125, y2, 45, 38);
-      doc.addImage(witnessSig, 'PNG', margin + 127, y2 + 4, 41, 28);
+      doc.text('TTD Saksi', margin + 135, y2 + 19);
     }
-  } catch {
-    doc.rect(margin + 125, y2, 45, 38);
-    doc.text('TTD Saksi', margin + 135, y2 + 19);
+    y2 += 44;
+  } else {
+    // Keterangan Resmi Perjanjian Pinjaman Diterbitkan Tanpa Saksi
+    doc.setFillColor(254, 243, 199);
+    doc.rect(margin, y2, contentWidth, 7, 'F');
+    doc.setTextColor(146, 64, 14);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('B. STATUS SAKSI: SURAT PERJANJIAN PINJAMAN DITERBITKAN TANPA SAKSI', margin + 4, y2 + 5);
+    y2 += 10;
+
+    doc.setFillColor(255, 251, 235);
+    doc.setDrawColor(245, 158, 11);
+    doc.roundedRect(margin, y2, contentWidth, 14, 1.5, 1.5, 'FD');
+    doc.setTextColor(120, 53, 15);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PERJANJIAN LANGSUNG ANTARA PEMINJAM & PEMBERI PINJAMAN', margin + 4, y2 + 5);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text(
+      'Surat Perjanjian Pinjaman ini disepakati dan ditandatangani langsung antara Pihak Pertama (Pemberi Pinjaman) dan Pihak Kedua (Nasabah)',
+      margin + 4,
+      y2 + 9
+    );
+    doc.text(
+      'tanpa melibatkan pihak saksi / penjamin, dengan tanggung jawab hukum dan pelunasan pinjaman melekat penuh pada Pihak Kedua.',
+      margin + 4,
+      y2 + 12.5
+    );
+    y2 += 18;
   }
-  y2 += 44;
 
   // BAGIAN C: Foto Kartu Keluarga Nasabah
   doc.setFillColor(241, 245, 249);
